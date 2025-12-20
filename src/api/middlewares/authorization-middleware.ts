@@ -14,10 +14,18 @@ export const authorizationMiddleware = async (
         throw new UnauthorizedError("Unauthorized");
     }
 
-    const publicMetadata = auth.sessionClaims?.metadata as UserPublicMetadata;
+    // Try to get role from JWT token first
+    const publicMetadata = auth.sessionClaims?.publicMetadata as UserPublicMetadata;
 
-    if (publicMetadata.role !== "admin") {
+    // If not in JWT, check MongoDB (fallback for when JWT doesn't include metadata)
+    if (!publicMetadata || !publicMetadata.role) {
+        const user = await User.findOne({ clerkUserId: auth.userId });
+        if (!user || user.role !== "admin") {
+            throw new ForbiddenError("Forbidden");
+        }
+    } else if (publicMetadata.role !== "admin") {
         throw new ForbiddenError("Forbidden");
     }
+
     next();
 };
