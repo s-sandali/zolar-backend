@@ -6,11 +6,13 @@ import { loggerMiddleware } from "./api/middlewares/logger-middleware";
 import solarUnitRouter from "./api/solar-unit";
 import { connectDB } from "./infrastructure/db";
 import { initializeScheduler } from "./infrastructure/scheduler";
+import { initializeAnomalyDetection } from "./infrastructure/anomaly-detection-scheduler";
 import cors from "cors";
 import webhooksRouter from "./api/webhooks";
 import { clerkMiddleware } from "@clerk/express";
 import usersRouter from "./api/users";
 import weatherRouter from "./api/weather";
+import anomaliesRouter from "./api/anomalies";
 
 const server = express();
 const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
@@ -43,11 +45,13 @@ server.use("/api/solar-units", solarUnitRouter);
 server.use("/api/energy-generation-records", energyGenerationRecordRouter);
 server.use("/api/users", usersRouter);
 server.use("/api/weather", weatherRouter);
+server.use("/api/anomalies", anomaliesRouter);
 
 server.use(globalErrorHandler);
 
 connectDB();
 initializeScheduler();
+initializeAnomalyDetection();
 
 const PORT = Number(process.env.PORT) || 8000;
 server.listen(PORT, "0.0.0.0", () => {

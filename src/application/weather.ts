@@ -9,6 +9,7 @@ interface OpenMeteoResponse {
     cloud_cover: number;
     wind_speed_10m: number;
     shortwave_radiation: number;
+    is_day: number; // 0 = night, 1 = day
   };
   current_units: {
     temperature_2m: string;
@@ -43,6 +44,7 @@ export interface WeatherData {
     temperature: number;
     windSpeed: number;
     condition: WeatherCondition;
+    isDay: boolean;
   };
   solarImpact: {
     score: number;
@@ -234,7 +236,7 @@ export async function getCurrentWeatherForSolarUnit(
   const { latitude, longitude, city } = solarUnit.location;
 
   // Fetch weather data from Open-Meteo API
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,precipitation,cloud_cover,wind_speed_10m,shortwave_radiation&timezone=auto`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,precipitation,cloud_cover,wind_speed_10m,shortwave_radiation,is_day&timezone=auto`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -249,6 +251,7 @@ export async function getCurrentWeatherForSolarUnit(
   const solarIrradiance = data.current.shortwave_radiation;
   const temperature = data.current.temperature_2m;
   const windSpeed = data.current.wind_speed_10m;
+  const isDay = data.current.is_day === 1;
 
   // Calculate solar impact
   const { score, breakdown } = calculateSolarImpact(
@@ -280,6 +283,7 @@ export async function getCurrentWeatherForSolarUnit(
       temperature,
       windSpeed,
       condition,
+      isDay,
     },
     solarImpact: {
       score,
