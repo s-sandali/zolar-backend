@@ -241,7 +241,7 @@ export async function getCurrentWeatherForSolarUnit(
     throw new Error("Failed to fetch weather data from Open-Meteo API");
   }
 
-  const data: OpenMeteoResponse = await response.json();
+  const data = (await response.json()) as OpenMeteoResponse;
 
   // Extract current weather values
   const cloudCover = data.current.cloud_cover;
