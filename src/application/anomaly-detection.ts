@@ -51,8 +51,12 @@ export class AnomalyDetector {
       );
       detectedAnomalies.push(...nighttimeAnomalies);
 
+      const zeroGenerationAnomalies = await this.detectZeroGenerationClearSky(
+        solarUnitId
+      );
+      detectedAnomalies.push(...zeroGenerationAnomalies);
+
       // Future: Add more detection methods here
-      // detectedAnomalies.push(...await this.detectZeroGenerationClearSky(solarUnitId));
       // detectedAnomalies.push(...await this.detectOverproduction(solarUnitId));
       // etc.
 
@@ -128,6 +132,74 @@ export class AnomalyDetector {
     } catch (error) {
       console.error(
         `Error in detectNighttimeGeneration for ${solarUnitId}:`,
+        error
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Algorithm 2: Zero Generation on Clear Sky Days Detection
+   *
+   * Detects solar panels producing zero energy during peak daylight hours (10am-2pm UTC)
+   * This indicates panel disconnection, inverter failure, or complete system outage
+   *
+   * Severity: CRITICAL
+   */
+  async detectZeroGenerationClearSky(
+    solarUnitId: string
+  ): Promise<DetectedAnomaly[]> {
+    const anomalies: DetectedAnomaly[] = [];
+
+    try {
+      // Get recent records (last 30 days)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      const recentRecords = await EnergyGenerationRecord.find({
+        solarUnitId,
+        timestamp: { $gte: thirtyDaysAgo },
+      }).sort({ timestamp: -1 });
+
+      console.log(
+        `[Zero Generation Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
+      );
+
+      for (const record of recentRecords) {
+        const hour = record.timestamp.getUTCHours();
+
+        // Peak sun hours: 10am - 2pm (10:00 - 14:00 UTC)
+        const isPeakHours = hour >= 10 && hour <= 14;
+
+        // Threshold: 0 Wh during peak hours is abnormal (expected minimum ~100 Wh)
+        if (isPeakHours && record.energyGenerated === 0) {
+          anomalies.push({
+            solarUnitId,
+            type: "ZERO_GENERATION_CLEAR_SKY",
+            severity: "CRITICAL",
+            affectedPeriod: {
+              start: record.timestamp,
+              end: record.timestamp,
+            },
+            energyRecordIds: [record._id.toString()],
+            description: `Solar panel generated 0Wh at ${hour}:00 UTC (peak sun hours). This indicates a complete system failure, panel disconnection, or inverter malfunction.`,
+            metadata: {
+              expectedValue: 200, // Expected minimum during peak hours
+              actualValue: 0,
+              deviation: 100,
+              threshold: "Peak hours: 10:00-14:00 UTC, expected >100 Wh",
+            },
+          });
+        }
+      }
+
+      console.log(
+        `[Zero Generation Detection] Found ${anomalies.length} zero generation anomalies`
+      );
+
+      return anomalies;
+    } catch (error) {
+      console.error(
+        `Error in detectZeroGenerationClearSky for ${solarUnitId}:`,
         error
       );
       return [];
