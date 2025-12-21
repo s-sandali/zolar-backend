@@ -4,6 +4,15 @@ import { User } from "../infrastructure/entities/User";
 import { NotFoundError, ForbiddenError } from "../domain/errors/errors";
 import { getAuth } from "@clerk/express";
 import { Request } from "express";
+import type { Types } from "mongoose";
+
+type LeanSolarUnit = {
+  _id: Types.ObjectId;
+  serialNumber?: string;
+  capacity?: number;
+};
+
+type AggregateCount = { _id: string; count: number };
 
 /**
  * Get anomalies for the current user's solar units
@@ -16,7 +25,9 @@ export async function getUserAnomalies(userId: string, query: any) {
       throw new NotFoundError("User not found");
     }
 
-    const solarUnits = await SolarUnit.find({ userId: user._id });
+    const solarUnits = await SolarUnit.find({ userId: user._id })
+      .select("_id serialNumber capacity")
+      .lean<LeanSolarUnit[]>();
     const solarUnitIds = solarUnits.map((unit) => unit._id);
 
     // Build query filters
@@ -136,23 +147,25 @@ export async function getAnomalyStats(userId: string) {
       throw new NotFoundError("User not found");
     }
 
-    const solarUnits = await SolarUnit.find({ userId: user._id });
+    const solarUnits = await SolarUnit.find({ userId: user._id })
+      .select("_id serialNumber capacity")
+      .lean<LeanSolarUnit[]>();
     const solarUnitIds = solarUnits.map((unit) => unit._id);
 
     // Get counts by status
-    const statusCounts = await Anomaly.aggregate([
+    const statusCounts = await Anomaly.aggregate<AggregateCount>([
       { $match: { solarUnitId: { $in: solarUnitIds } } },
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
     // Get counts by severity
-    const severityCounts = await Anomaly.aggregate([
+    const severityCounts = await Anomaly.aggregate<AggregateCount>([
       { $match: { solarUnitId: { $in: solarUnitIds } } },
       { $group: { _id: "$severity", count: { $sum: 1 } } },
     ]);
 
     // Get counts by type
-    const typeCounts = await Anomaly.aggregate([
+    const typeCounts = await Anomaly.aggregate<AggregateCount>([
       { $match: { solarUnitId: { $in: solarUnitIds } } },
       { $group: { _id: "$type", count: { $sum: 1 } } },
     ]);
@@ -165,27 +178,18 @@ export async function getAnomalyStats(userId: string) {
     });
 
     return {
-      byStatus: statusCounts.reduce(
-        (acc, item) => {
-          acc[item._id] = item.count;
-          return acc;
-        },
-        {} as Record<string, number>
-      ),
-      bySeverity: severityCounts.reduce(
-        (acc, item) => {
-          acc[item._id] = item.count;
-          return acc;
-        },
-        {} as Record<string, number>
-      ),
-      byType: typeCounts.reduce(
-        (acc, item) => {
-          acc[item._id] = item.count;
-          return acc;
-        },
-        {} as Record<string, number>
-      ),
+      byStatus: statusCounts.reduce<Record<string, number>>((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {}),
+      bySeverity: severityCounts.reduce<Record<string, number>>((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {}),
+      byType: typeCounts.reduce<Record<string, number>>((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {}),
       recentCount,
       totalCount: await Anomaly.countDocuments({
         solarUnitId: { $in: solarUnitIds },

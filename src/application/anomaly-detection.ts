@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord";
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { Anomaly } from "../infrastructure/entities/Anomaly";
@@ -31,6 +32,15 @@ export interface DetectedAnomaly {
     deviation?: number;
     threshold?: string;
   };
+}
+
+interface DetectionRecord {
+  _id: Types.ObjectId;
+  timestamp: Date;
+  energyGenerated: number;
+  intervalHours?: number | null;
+  weatherCondition?: string | null;
+  cloudCover?: number | null;
 }
 
 /**
@@ -104,10 +114,12 @@ export class AnomalyDetector {
       const lookbackDays = 150;
       const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
-      const recentRecords = await EnergyGenerationRecord.find({
+      const recentRecords: DetectionRecord[] = await EnergyGenerationRecord.find({
         solarUnitId,
         timestamp: { $gte: lookbackDate },
-      }).sort({ timestamp: -1 });
+      })
+        .sort({ timestamp: -1 })
+        .lean<DetectionRecord[]>();
 
       console.log(
         `[Nighttime Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
@@ -173,10 +185,12 @@ export class AnomalyDetector {
       const lookbackDays = 150;
       const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
-      const recentRecords = await EnergyGenerationRecord.find({
+      const recentRecords: DetectionRecord[] = await EnergyGenerationRecord.find({
         solarUnitId,
         timestamp: { $gte: lookbackDate },
-      }).sort({ timestamp: -1 });
+      })
+        .sort({ timestamp: -1 })
+        .lean<DetectionRecord[]>();
 
       console.log(
         `[Zero Generation Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
@@ -250,10 +264,12 @@ export class AnomalyDetector {
       const lookbackDays = 150;
       const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
-      const recentRecords = await EnergyGenerationRecord.find({
+      const recentRecords: DetectionRecord[] = await EnergyGenerationRecord.find({
         solarUnitId,
         timestamp: { $gte: lookbackDate },
-      }).sort({ timestamp: -1 });
+      })
+        .sort({ timestamp: -1 })
+        .lean<DetectionRecord[]>();
 
       console.log(
         `[Threshold Capacity Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
@@ -265,7 +281,7 @@ export class AnomalyDetector {
       for (const record of recentRecords) {
         // Calculate maximum possible energy for this interval
         // maxEnergy = capacity (W) × intervalHours
-        const intervalHours = (record as any).intervalHours || 2;
+        const intervalHours = record.intervalHours || 2;
         const maxEnergy = solarUnit.capacity * intervalHours;
 
         // If energy generated exceeds physical maximum, it's an anomaly
@@ -327,11 +343,13 @@ export class AnomalyDetector {
       const lookbackDays = 150;
       const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
-      const recentRecords = await EnergyGenerationRecord.find({
+      const recentRecords: DetectionRecord[] = await EnergyGenerationRecord.find({
         solarUnitId,
         timestamp: { $gte: lookbackDate },
         weatherCondition: { $exists: true }, // Only check records with weather data
-      }).sort({ timestamp: -1 });
+      })
+        .sort({ timestamp: -1 })
+        .lean<DetectionRecord[]>();
 
       console.log(
         `[Weather Mismatch Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
@@ -343,8 +361,8 @@ export class AnomalyDetector {
 
         if (!isDaytime) continue; // Skip nighttime records
 
-        const weatherCondition = (record as any).weatherCondition;
-        const cloudCover = (record as any).cloudCover || 0;
+        const weatherCondition = record.weatherCondition;
+        const cloudCover = record.cloudCover || 0;
         const energyGenerated = record.energyGenerated;
 
         // Case 1: High generation during bad weather (rain or heavy overcast)
@@ -431,10 +449,12 @@ export class AnomalyDetector {
       const lookbackDays = 150;
       const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
-      const recentRecords = await EnergyGenerationRecord.find({
+      const recentRecords: DetectionRecord[] = await EnergyGenerationRecord.find({
         solarUnitId,
         timestamp: { $gte: lookbackDate },
-      }).sort({ timestamp: 1 }); // Sort ascending to detect consecutive frozen values
+      })
+        .sort({ timestamp: 1 })
+        .lean<DetectionRecord[]>(); // Sort ascending to detect consecutive frozen values
 
       console.log(
         `[Frozen Generation Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
@@ -444,7 +464,7 @@ export class AnomalyDetector {
       const MIN_FROZEN_COUNT = 4;
 
       // Track frozen sequences
-      let frozenSequence: typeof recentRecords = [];
+      let frozenSequence: DetectionRecord[] = [];
       let previousValue: number | null = null;
 
       for (let i = 0; i < recentRecords.length; i++) {
@@ -549,7 +569,7 @@ export class AnomalyDetector {
   /**
    * Helper method: Check if weather conditions changed during a sequence of records
    */
-  private hasWeatherChanged(records: any[]): boolean {
+  private hasWeatherChanged(records: DetectionRecord[]): boolean {
     if (records.length < 2) return false;
 
     const weatherConditions = new Set<string>();

@@ -4,6 +4,26 @@ import { Anomaly } from "../infrastructure/entities/Anomaly";
 import { NotFoundError } from "../domain/errors/errors";
 import { calculateSolarImpact } from "./weather";
 
+type LeanEnergyRecord = {
+  timestamp: Date;
+  energyGenerated?: number;
+  energy?: number;
+  intervalHours?: number;
+  cloudCover?: number;
+  precipitation?: number;
+  temperature?: number;
+  solarIrradiance?: number;
+  windSpeed?: number;
+};
+
+type LeanAnomaly = {
+  type: string;
+  severity: "CRITICAL" | "WARNING" | "INFO";
+  status: "OPEN" | "ACKNOWLEDGED" | "RESOLVED" | "FALSE_POSITIVE";
+  detectedAt: Date;
+  resolvedAt?: Date | null;
+};
+
 interface DailyPerformanceData {
   date: string;
   actualEnergy: number;
@@ -74,15 +94,17 @@ export async function getWeatherAdjustedPerformance(
   const energyRecords = await EnergyGenerationRecord.find({
     solarUnitId: solarUnit._id,
     timestamp: { $gte: startDate, $lte: endDate },
-  }).sort({ timestamp: 1 });
+  })
+    .sort({ timestamp: 1 })
+    .lean<LeanEnergyRecord[]>();
 
   // Group records by day and aggregate
   const dailyDataMap = new Map<string, {
     actualEnergy: number;
-    records: typeof energyRecords;
+    records: LeanEnergyRecord[];
   }>();
 
-  energyRecords.forEach((record: any) => {
+  energyRecords.forEach((record) => {
   const dateKey = new Date(record.timestamp).toISOString().split('T')[0];
 
   if (!dailyDataMap.has(dateKey)) {
@@ -108,7 +130,7 @@ export async function getWeatherAdjustedPerformance(
     let totalWindSpeed = 0;
     let count = 0;
 
-    data.records.forEach((record: any) => {
+    data.records.forEach((record) => {
   if (record.cloudCover !== undefined) totalCloudCover += record.cloudCover;
   if (record.precipitation !== undefined) totalPrecipitation += record.precipitation;
   if (record.temperature !== undefined) totalTemp += record.temperature;
@@ -217,7 +239,8 @@ export async function getAnomalyDistribution(
   const anomalies = await Anomaly.find({
     solarUnitId: solarUnit._id,
     detectedAt: { $gte: startDate, $lte: endDate },
-  });
+  })
+    .lean<LeanAnomaly[]>();
 
   const totalAnomalies = anomalies.length;
 
@@ -314,7 +337,8 @@ export async function getSystemHealth(
   const anomalies = await Anomaly.find({
     solarUnitId: solarUnit._id,
     detectedAt: { $gte: startDate, $lte: endDate },
-  });
+  })
+    .lean<LeanAnomaly[]>();
 
   // Factor 1: Anomaly Impact (fewer anomalies = better)
   const criticalCount = anomalies.filter(a => a.severity === 'CRITICAL').length;
