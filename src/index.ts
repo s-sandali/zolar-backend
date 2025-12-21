@@ -13,6 +13,7 @@ import { clerkMiddleware } from "@clerk/express";
 import usersRouter from "./api/users";
 import weatherRouter from "./api/weather";
 import anomaliesRouter from "./api/anomalies";
+import analyticsRouter from "./api/analytics";
 
 const server = express();
 const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
@@ -46,6 +47,7 @@ server.use("/api/energy-generation-records", energyGenerationRecordRouter);
 server.use("/api/users", usersRouter);
 server.use("/api/weather", weatherRouter);
 server.use("/api/anomalies", anomaliesRouter);
+server.use("/api/analytics", analyticsRouter);
 
 server.use(globalErrorHandler);
 
