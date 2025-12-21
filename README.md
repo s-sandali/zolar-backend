@@ -5,6 +5,11 @@
 > A production-ready REST API for managing solar panel units, monitoring energy generation, detecting anomalies, processing payments, and providing analytics for solar energy systems.
 
 ---
+**Deployed API backend**: [https://fed-4-back-end-sandali.onrender.com](https://fed-4-back-end-sandali.onrender.com)
+
+**Deployed API frontend**: [https://fed-4-back-end-sandali.onrender.com](https://fed-4-front-end-sandali.netlify.app)  
+
+**Deployed data URL**: [https://fed-4-back-end-sandali.onrender.com](https://fed-4-data-api-sandali.onrender.com)
 
 ## Table of Contents
 
@@ -40,9 +45,6 @@ The Zolar Backend is the core API service that powers the Zolar solar energy mon
 - Real-time webhooks from Clerk (auth) and Stripe (payments)
 - Background data synchronization with external IoT data sources
 
-**Deployed API backend**: [https://fed-4-back-end-sandali.onrender.com](https://fed-4-back-end-sandali.onrender.com)
-**Deployed API frontend**: [https://fed-4-back-end-sandali.onrender.com](https://fed-4-front-end-sandali.netlify.app/)  
-**Deployed data API **: [https://fed-4-back-end-sandali.onrender.com](https://fed-4-data-api-sandali.onrender.com)
 
 ---
 
