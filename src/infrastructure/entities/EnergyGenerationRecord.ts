@@ -20,6 +20,16 @@ const energyGenerationRecordSchema = new mongoose.Schema({
     min: 0.1,
     max: 24,
   },
+  // Weather conditions at the time of measurement (synced from data-api)
+  weatherCondition: {
+    type: String,
+    enum: ["clear", "partly_cloudy", "overcast", "rain"],
+    required: false,
+  },
+  cloudCover: {
+    type: Number, // 0-100%
+    required: false,
+  },
 });
 
 export const EnergyGenerationRecord = mongoose.model(
