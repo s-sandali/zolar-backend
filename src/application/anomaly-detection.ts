@@ -56,8 +56,13 @@ export class AnomalyDetector {
       );
       detectedAnomalies.push(...zeroGenerationAnomalies);
 
+      const overproductionAnomalies = await this.detectOverproduction(
+        solarUnitId
+      );
+      detectedAnomalies.push(...overproductionAnomalies);
+
       // Future: Add more detection methods here
-      // detectedAnomalies.push(...await this.detectOverproduction(solarUnitId));
+      // detectedAnomalies.push(...await this.detectSuddenProductionDrop(solarUnitId));
       // etc.
 
       return detectedAnomalies;
@@ -84,12 +89,13 @@ export class AnomalyDetector {
     const anomalies: DetectedAnomaly[] = [];
 
     try {
-      // Get recent records (last 30 days to catch all recent anomalies)
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      // Get recent records (last 150 days to capture all test data from Aug 1)
+      const lookbackDays = 150;
+      const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
       const recentRecords = await EnergyGenerationRecord.find({
         solarUnitId,
-        timestamp: { $gte: thirtyDaysAgo },
+        timestamp: { $gte: lookbackDate },
       }).sort({ timestamp: -1 });
 
       console.log(
@@ -99,8 +105,8 @@ export class AnomalyDetector {
       for (const record of recentRecords) {
         const hour = record.timestamp.getUTCHours();
 
-        // Night hours: 6pm - 6am (18:00 - 06:00 UTC)
-        const isNighttime = hour >= 18 || hour < 6;
+        // Night hours: 7pm - 6am (19:00 - 06:00 UTC) - exclude 18:00 as it's still daylight
+        const isNighttime = hour >= 19 || hour < 6;
 
         // Threshold: More than 10 Wh during night is abnormal
         if (isNighttime && record.energyGenerated > 10) {
@@ -152,12 +158,13 @@ export class AnomalyDetector {
     const anomalies: DetectedAnomaly[] = [];
 
     try {
-      // Get recent records (last 30 days)
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      // Get recent records (last 150 days to capture all test data from Aug 1)
+      const lookbackDays = 150;
+      const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
 
       const recentRecords = await EnergyGenerationRecord.find({
         solarUnitId,
-        timestamp: { $gte: thirtyDaysAgo },
+        timestamp: { $gte: lookbackDate },
       }).sort({ timestamp: -1 });
 
       console.log(
@@ -200,6 +207,79 @@ export class AnomalyDetector {
     } catch (error) {
       console.error(
         `Error in detectZeroGenerationClearSky for ${solarUnitId}:`,
+        error
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Algorithm 3: Overproduction Detection
+   *
+   * Detects when solar panels generate more than 120% of their rated capacity
+   * Rated capacity: 500W × 2 hours = 1000 Wh max per interval
+   * Threshold: >1200 Wh indicates sensor malfunction or calibration error
+   *
+   * Severity: WARNING (not critical but needs attention)
+   */
+  async detectOverproduction(
+    solarUnitId: string
+  ): Promise<DetectedAnomaly[]> {
+    const anomalies: DetectedAnomaly[] = [];
+
+    try {
+      // Get recent records (last 150 days to capture all test data from Aug 1)
+      const lookbackDays = 150;
+      const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+
+      const recentRecords = await EnergyGenerationRecord.find({
+        solarUnitId,
+        timestamp: { $gte: lookbackDate },
+      }).sort({ timestamp: -1 });
+
+      console.log(
+        `[Overproduction Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
+      );
+
+      // Rated capacity: 500W × 2 hours = 1000 Wh
+      // Threshold: 120% of rated capacity = 1200 Wh
+      const MAX_CAPACITY = 1000;
+      const OVERPRODUCTION_THRESHOLD = MAX_CAPACITY * 1.2; // 1200 Wh
+
+      for (const record of recentRecords) {
+        if (record.energyGenerated > OVERPRODUCTION_THRESHOLD) {
+          const deviationPercent = Math.round(
+            ((record.energyGenerated - MAX_CAPACITY) / MAX_CAPACITY) * 100
+          );
+
+          anomalies.push({
+            solarUnitId,
+            type: "OVERPRODUCTION",
+            severity: "WARNING",
+            affectedPeriod: {
+              start: record.timestamp,
+              end: record.timestamp,
+            },
+            energyRecordIds: [record._id.toString()],
+            description: `Solar panel generated ${record.energyGenerated}Wh, which exceeds the rated capacity (1000 Wh max). This indicates a sensor malfunction, calibration error, or data anomaly.`,
+            metadata: {
+              expectedValue: MAX_CAPACITY,
+              actualValue: record.energyGenerated,
+              deviation: deviationPercent,
+              threshold: `Maximum capacity: ${MAX_CAPACITY} Wh, threshold: ${OVERPRODUCTION_THRESHOLD} Wh (120%)`,
+            },
+          });
+        }
+      }
+
+      console.log(
+        `[Overproduction Detection] Found ${anomalies.length} overproduction anomalies`
+      );
+
+      return anomalies;
+    } catch (error) {
+      console.error(
+        `Error in detectOverproduction for ${solarUnitId}:`,
         error
       );
       return [];
