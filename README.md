@@ -4,7 +4,14 @@
 
 A production-ready REST API for managing solar panel units, monitoring energy generation, detecting anomalies, processing payments, and providing analytics.
 
-**🌐 Live API**: [https://fed-4-back-end-sandali.onrender.com](https://fed-4-back-end-sandali.onrender.com)
+## 🌐 Deployed Links
+
+| Service | URL | Status |
+|---------|-----|--------|
+| **Frontend** | [https://fed-4-front-end-sandali.netlify.app](https://fed-4-front-end-sandali.netlify.app) | ✅ Live |
+| **Backend API** | [https://fed-4-back-end-sandali.onrender.com](https://fed-4-back-end-sandali.onrender.com) | ✅ Live |
+| **Data API** | [https://fed-4-data-api-sandali.onrender.com](https://fed-4-data-api-sandali.onrender.com) | ✅ Live |
+
 
 ---
 
@@ -28,46 +35,6 @@ The Zolar Backend is the core API service powering the solar energy monitoring p
 
 ---
 
-## 🏗️ System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  Backend API (Express + MongoDB)            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ API Layer                                            │  │
-│  │  • Express routes (30+ endpoints)                    │  │
-│  │  • Middleware (auth, validation, logging, CORS)     │  │
-│  │  • Webhooks (Clerk, Stripe)                         │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                          ↓                                  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Application Layer                                    │  │
-│  │  • Business logic & use cases                        │  │
-│  │  • Anomaly detection (5 algorithms)                  │  │
-│  │  • Data aggregation & analytics                      │  │
-│  │  • Background jobs (sync, invoicing, detection)     │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                          ↓                                  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Domain Layer                                         │  │
-│  │  • DTOs & Zod validation schemas                     │  │
-│  │  • Custom error classes                              │  │
-│  │  • Type definitions                                  │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                          ↓                                  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Infrastructure Layer                                 │  │
-│  │  • MongoDB models (Mongoose)                         │  │
-│  │  • External APIs (Clerk, Stripe, Open-Meteo)       │  │
-│  │  • Cron schedulers (3 background jobs)              │  │
-│  └──────────────────────────────────────────────────────┘  │
-└────────────┬────────────────────────────┬──────────────────┘
-             ↓                            ↓
-    ┌────────────────┐          ┌─────────────────┐
-    │ MongoDB Atlas  │          │   Data API      │
-    │  (Main DB)     │          │ (IoT Simulation)│
-    └────────────────┘          └─────────────────┘
-```
 
 **Clean 4-Layer Architecture**: API → Application → Domain → Infrastructure
 
@@ -290,21 +257,13 @@ FRONTEND_URL=http://localhost:5173,https://fed-4-front-end-sandali.netlify.app
 
 ---
 
-## 🌐 Deployed Links
 
-| Service | URL | Status |
-|---------|-----|--------|
-| **Frontend** | [https://fed-4-front-end-sandali.netlify.app](https://fed-4-front-end-sandali.netlify.app) | ✅ Live |
-| **Backend API** | [https://fed-4-back-end-sandali.onrender.com](https://fed-4-back-end-sandali.onrender.com) | ✅ Live |
-| **Data API** | [https://fed-4-data-api-sandali.onrender.com](https://fed-4-data-api-sandali.onrender.com) | ✅ Live |
-
----
 
 ## 📞 Support
 
 **Developer**: Sandali Sandagomi
 **Email**: sandalisandagomi@gmail.com
-**Course**: Fullstack Development Bootcamp - Day 17
+
 
 ---
 
