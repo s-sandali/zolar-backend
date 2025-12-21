@@ -72,6 +72,24 @@ export const getSolarUnitById = async (
   }
 };
 
+export const getSolarUnitBySerial = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { serialNumber } = req.params;
+    const solarUnit = await SolarUnit.findOne({ serialNumber });
+
+    if (!solarUnit) {
+      throw new NotFoundError("Solar unit not found");
+    }
+    res.status(200).json(solarUnit);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getSolarUnitForUser = async (
   req: Request,
   res: Response,

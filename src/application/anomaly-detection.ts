@@ -6,11 +6,12 @@ import { Anomaly } from "../infrastructure/entities/Anomaly";
 export type AnomalyType =
   | "NIGHTTIME_GENERATION"
   | "ZERO_GENERATION_CLEAR_SKY"
-  | "OVERPRODUCTION"
+  | "ENERGY_EXCEEDING_THRESHOLD"
   | "HIGH_GENERATION_BAD_WEATHER"
   | "LOW_GENERATION_CLEAR_WEATHER"
   | "SUDDEN_PRODUCTION_DROP"
-  | "ERRATIC_OUTPUT";
+  | "ERRATIC_OUTPUT"
+  | "FROZEN_GENERATION";
 
 export type AnomalySeverity = "CRITICAL" | "WARNING" | "INFO";
 
@@ -56,10 +57,20 @@ export class AnomalyDetector {
       );
       detectedAnomalies.push(...zeroGenerationAnomalies);
 
-      const overproductionAnomalies = await this.detectOverproduction(
+      const thresholdCapacityAnomalies = await this.detectEnergyExceedingThreshold(
         solarUnitId
       );
-      detectedAnomalies.push(...overproductionAnomalies);
+      detectedAnomalies.push(...thresholdCapacityAnomalies);
+
+      const weatherMismatchAnomalies = await this.detectWeatherPerformanceMismatch(
+        solarUnitId
+      );
+      detectedAnomalies.push(...weatherMismatchAnomalies);
+
+      const frozenGenerationAnomalies = await this.detectFrozenGeneration(
+        solarUnitId
+      );
+      detectedAnomalies.push(...frozenGenerationAnomalies);
 
       // Future: Add more detection methods here
       // detectedAnomalies.push(...await this.detectSuddenProductionDrop(solarUnitId));
@@ -214,15 +225,99 @@ export class AnomalyDetector {
   }
 
   /**
-   * Algorithm 3: Overproduction Detection
+   * Algorithm 3: Energy Exceeding Threshold Capacity Detection
    *
-   * Detects when solar panels generate more than 120% of their rated capacity
-   * Rated capacity: 500W × 2 hours = 1000 Wh max per interval
-   * Threshold: >1200 Wh indicates sensor malfunction or calibration error
+   * Detects when energy generation exceeds the physical maximum capacity
+   * Each solar unit has a maximum output: capacity (kW) × intervalHours
+   * Values exceeding this are physically impossible and indicate data corruption
    *
-   * Severity: WARNING (not critical but needs attention)
+   * Severity: CRITICAL (indicates serious data integrity issues)
    */
-  async detectOverproduction(
+  async detectEnergyExceedingThreshold(
+    solarUnitId: string
+  ): Promise<DetectedAnomaly[]> {
+    const anomalies: DetectedAnomaly[] = [];
+
+    try {
+      // Get solar unit to retrieve capacity
+      const solarUnit = await SolarUnit.findById(solarUnitId);
+      if (!solarUnit) {
+        console.error(`Solar unit ${solarUnitId} not found`);
+        return [];
+      }
+
+      // Get recent records (last 150 days to capture all test data from Aug 1)
+      const lookbackDays = 150;
+      const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+
+      const recentRecords = await EnergyGenerationRecord.find({
+        solarUnitId,
+        timestamp: { $gte: lookbackDate },
+      }).sort({ timestamp: -1 });
+
+      console.log(
+        `[Threshold Capacity Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
+      );
+      console.log(
+        `[Threshold Capacity Detection] Solar unit capacity: ${solarUnit.capacity}W`
+      );
+
+      for (const record of recentRecords) {
+        // Calculate maximum possible energy for this interval
+        // maxEnergy = capacity (W) × intervalHours
+        const intervalHours = (record as any).intervalHours || 2;
+        const maxEnergy = solarUnit.capacity * intervalHours;
+
+        // If energy generated exceeds physical maximum, it's an anomaly
+        if (record.energyGenerated > maxEnergy) {
+          const excessPercent = Math.round(
+            ((record.energyGenerated - maxEnergy) / maxEnergy) * 100
+          );
+
+          anomalies.push({
+            solarUnitId,
+            type: "ENERGY_EXCEEDING_THRESHOLD",
+            severity: "CRITICAL",
+            affectedPeriod: {
+              start: record.timestamp,
+              end: record.timestamp,
+            },
+            energyRecordIds: [record._id.toString()],
+            description: `Energy generation of ${record.energyGenerated}Wh exceeds the physical maximum capacity of ${maxEnergy}Wh (${solarUnit.capacity}W × ${intervalHours}h). This indicates data corruption, miscalculation, or a serious system error.`,
+            metadata: {
+              expectedValue: maxEnergy,
+              actualValue: record.energyGenerated,
+              deviation: excessPercent,
+              threshold: `Maximum physical capacity: ${maxEnergy}Wh (${solarUnit.capacity}W × ${intervalHours}h interval)`,
+            },
+          });
+        }
+      }
+
+      console.log(
+        `[Threshold Capacity Detection] Found ${anomalies.length} threshold capacity anomalies`
+      );
+
+      return anomalies;
+    } catch (error) {
+      console.error(
+        `Error in detectEnergyExceedingThreshold for ${solarUnitId}:`,
+        error
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Algorithm 4: Weather-Performance Mismatch Detection
+   *
+   * Detects discrepancies between weather conditions and energy generation
+   * - High generation during bad weather (rain/overcast)
+   * - Low generation during clear weather
+   *
+   * Severity: WARNING (indicates sensor issues or weather data problems)
+   */
+  async detectWeatherPerformanceMismatch(
     solarUnitId: string
   ): Promise<DetectedAnomaly[]> {
     const anomalies: DetectedAnomaly[] = [];
@@ -235,55 +330,242 @@ export class AnomalyDetector {
       const recentRecords = await EnergyGenerationRecord.find({
         solarUnitId,
         timestamp: { $gte: lookbackDate },
+        weatherCondition: { $exists: true }, // Only check records with weather data
       }).sort({ timestamp: -1 });
 
       console.log(
-        `[Overproduction Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
+        `[Weather Mismatch Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
       );
 
-      // Rated capacity: 500W × 2 hours = 1000 Wh
-      // Threshold: 120% of rated capacity = 1200 Wh
-      const MAX_CAPACITY = 1000;
-      const OVERPRODUCTION_THRESHOLD = MAX_CAPACITY * 1.2; // 1200 Wh
-
       for (const record of recentRecords) {
-        if (record.energyGenerated > OVERPRODUCTION_THRESHOLD) {
-          const deviationPercent = Math.round(
-            ((record.energyGenerated - MAX_CAPACITY) / MAX_CAPACITY) * 100
-          );
+        const hour = record.timestamp.getUTCHours();
+        const isDaytime = hour >= 6 && hour <= 18;
 
+        if (!isDaytime) continue; // Skip nighttime records
+
+        const weatherCondition = (record as any).weatherCondition;
+        const cloudCover = (record as any).cloudCover || 0;
+        const energyGenerated = record.energyGenerated;
+
+        // Case 1: High generation during bad weather (rain or heavy overcast)
+        // Rain/Overcast should reduce generation to <40% of typical peak (400 Wh)
+        // If generating >500 Wh during rain/overcast, it's suspicious
+        if ((weatherCondition === "rain" || (weatherCondition === "overcast" && cloudCover > 80)) && energyGenerated > 500) {
           anomalies.push({
             solarUnitId,
-            type: "OVERPRODUCTION",
+            type: "HIGH_GENERATION_BAD_WEATHER",
             severity: "WARNING",
             affectedPeriod: {
               start: record.timestamp,
               end: record.timestamp,
             },
             energyRecordIds: [record._id.toString()],
-            description: `Solar panel generated ${record.energyGenerated}Wh, which exceeds the rated capacity (1000 Wh max). This indicates a sensor malfunction, calibration error, or data anomaly.`,
+            description: `Solar panel generated ${energyGenerated}Wh during ${weatherCondition} conditions (${cloudCover}% cloud cover). This high output during bad weather suggests weather sensor malfunction or incorrect weather data.`,
             metadata: {
-              expectedValue: MAX_CAPACITY,
-              actualValue: record.energyGenerated,
-              deviation: deviationPercent,
-              threshold: `Maximum capacity: ${MAX_CAPACITY} Wh, threshold: ${OVERPRODUCTION_THRESHOLD} Wh (120%)`,
+              expectedValue: 200, // Expected during bad weather
+              actualValue: energyGenerated,
+              deviation: Math.round(((energyGenerated - 200) / 200) * 100),
+              threshold: `Weather: ${weatherCondition} (${cloudCover}% cloud cover), Expected <400 Wh during bad weather`,
+            },
+          });
+        }
+
+        // Case 2: Low generation during clear weather
+        // Clear sky during peak hours (10-14) should generate >400 Wh
+        // If generating <200 Wh during clear peak hours, it's suspicious
+        const isPeakHours = hour >= 10 && hour <= 14;
+        if (weatherCondition === "clear" && cloudCover < 20 && isPeakHours && energyGenerated < 200) {
+          anomalies.push({
+            solarUnitId,
+            type: "LOW_GENERATION_CLEAR_WEATHER",
+            severity: "WARNING",
+            affectedPeriod: {
+              start: record.timestamp,
+              end: record.timestamp,
+            },
+            energyRecordIds: [record._id.toString()],
+            description: `Solar panel generated only ${energyGenerated}Wh during clear sky conditions (${cloudCover}% cloud cover) at ${hour}:00 UTC. This low output during perfect conditions indicates potential panel issues or sensor problems.`,
+            metadata: {
+              expectedValue: 400, // Expected during clear peak hours
+              actualValue: energyGenerated,
+              deviation: Math.round(((energyGenerated - 400) / 400) * 100),
+              threshold: `Weather: ${weatherCondition} (${cloudCover}% cloud cover), Peak hours (${hour}:00), Expected >400 Wh during clear sky`,
             },
           });
         }
       }
 
       console.log(
-        `[Overproduction Detection] Found ${anomalies.length} overproduction anomalies`
+        `[Weather Mismatch Detection] Found ${anomalies.length} weather-performance mismatch anomalies`
       );
 
       return anomalies;
     } catch (error) {
       console.error(
-        `Error in detectOverproduction for ${solarUnitId}:`,
+        `Error in detectWeatherPerformanceMismatch for ${solarUnitId}:`,
         error
       );
       return [];
     }
+  }
+
+  /**
+   * Algorithm 5: Frozen Generation Values (Stale Data) Detection
+   *
+   * Detects when energy values are stuck at the same value across multiple consecutive intervals
+   * This indicates data collection issues, frozen sensors, or communication failures
+   *
+   * Detection criteria:
+   * - N consecutive records with identical energy values (N >= 4)
+   * - Strengthened by weather changes during the frozen period
+   *
+   * Severity: WARNING (indicates stale data, not necessarily panel malfunction)
+   */
+  async detectFrozenGeneration(
+    solarUnitId: string
+  ): Promise<DetectedAnomaly[]> {
+    const anomalies: DetectedAnomaly[] = [];
+
+    try {
+      // Get recent records (last 150 days to capture all test data from Aug 1)
+      const lookbackDays = 150;
+      const lookbackDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
+
+      const recentRecords = await EnergyGenerationRecord.find({
+        solarUnitId,
+        timestamp: { $gte: lookbackDate },
+      }).sort({ timestamp: 1 }); // Sort ascending to detect consecutive frozen values
+
+      console.log(
+        `[Frozen Generation Detection] Checking ${recentRecords.length} records for solar unit ${solarUnitId}`
+      );
+
+      // Minimum consecutive identical values to trigger anomaly
+      const MIN_FROZEN_COUNT = 4;
+
+      // Track frozen sequences
+      let frozenSequence: typeof recentRecords = [];
+      let previousValue: number | null = null;
+
+      for (let i = 0; i < recentRecords.length; i++) {
+        const record = recentRecords[i];
+        const energyValue = record.energyGenerated;
+
+        if (energyValue === previousValue && previousValue !== null) {
+          // Value is same as previous - add to frozen sequence
+          frozenSequence.push(record);
+        } else {
+          // Value changed - check if previous sequence was long enough to be anomalous
+          if (frozenSequence.length >= MIN_FROZEN_COUNT) {
+            // Check if weather changed during the frozen period
+            const weatherChanged = this.hasWeatherChanged(frozenSequence);
+
+            // Additional check: Skip if all records are nighttime zeros (expected behavior)
+            const allNighttimeZeros = frozenSequence.every(r => {
+              const hour = r.timestamp.getUTCHours();
+              const isNighttime = hour >= 19 || hour < 6;
+              return isNighttime && r.energyGenerated === 0;
+            });
+
+            if (!allNighttimeZeros) {
+              const description = weatherChanged
+                ? `Solar panel reported identical energy value (${previousValue}Wh) for ${frozenSequence.length} consecutive intervals (${Math.round(frozenSequence.length * 2)} hours), despite changing weather conditions. This indicates frozen/stale data from sensor malfunction or communication failure.`
+                : `Solar panel reported identical energy value (${previousValue}Wh) for ${frozenSequence.length} consecutive intervals (${Math.round(frozenSequence.length * 2)} hours). This indicates frozen/stale data from sensor malfunction or communication failure.`;
+
+              anomalies.push({
+                solarUnitId,
+                type: "FROZEN_GENERATION",
+                severity: "WARNING",
+                affectedPeriod: {
+                  start: frozenSequence[0].timestamp,
+                  end: frozenSequence[frozenSequence.length - 1].timestamp,
+                },
+                energyRecordIds: frozenSequence.map((r) => r._id.toString()),
+                description,
+                metadata: {
+                  actualValue: previousValue || 0,
+                  threshold: `${MIN_FROZEN_COUNT} consecutive identical values (${frozenSequence.length} detected)`,
+                  deviation: weatherChanged ? 100 : 50,
+                },
+              });
+            }
+          }
+
+          // Start new sequence with current record
+          frozenSequence = [record];
+          previousValue = energyValue;
+        }
+      }
+
+      // Check last sequence after loop ends
+      if (frozenSequence.length >= MIN_FROZEN_COUNT && previousValue !== null) {
+        const weatherChanged = this.hasWeatherChanged(frozenSequence);
+
+        // Additional check: Skip if all records are nighttime zeros (expected behavior)
+        const allNighttimeZeros = frozenSequence.every(r => {
+          const hour = r.timestamp.getUTCHours();
+          const isNighttime = hour >= 19 || hour < 6;
+          return isNighttime && r.energyGenerated === 0;
+        });
+
+        if (!allNighttimeZeros) {
+          const description = weatherChanged
+            ? `Solar panel reported identical energy value (${previousValue}Wh) for ${frozenSequence.length} consecutive intervals (${Math.round(frozenSequence.length * 2)} hours), despite changing weather conditions. This indicates frozen/stale data from sensor malfunction or communication failure.`
+            : `Solar panel reported identical energy value (${previousValue}Wh) for ${frozenSequence.length} consecutive intervals (${Math.round(frozenSequence.length * 2)} hours). This indicates frozen/stale data from sensor malfunction or communication failure.`;
+
+          anomalies.push({
+            solarUnitId,
+            type: "FROZEN_GENERATION",
+            severity: "WARNING",
+            affectedPeriod: {
+              start: frozenSequence[0].timestamp,
+              end: frozenSequence[frozenSequence.length - 1].timestamp,
+            },
+            energyRecordIds: frozenSequence.map((r) => r._id.toString()),
+            description,
+            metadata: {
+              actualValue: previousValue,
+              threshold: `${MIN_FROZEN_COUNT} consecutive identical values (${frozenSequence.length} detected)`,
+              deviation: weatherChanged ? 100 : 50,
+            },
+          });
+        }
+      }
+
+      console.log(
+        `[Frozen Generation Detection] Found ${anomalies.length} frozen generation anomalies`
+      );
+
+      return anomalies;
+    } catch (error) {
+      console.error(
+        `Error in detectFrozenGeneration for ${solarUnitId}:`,
+        error
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Helper method: Check if weather conditions changed during a sequence of records
+   */
+  private hasWeatherChanged(records: any[]): boolean {
+    if (records.length < 2) return false;
+
+    const weatherConditions = new Set<string>();
+    const cloudCovers = new Set<number>();
+
+    for (const record of records) {
+      if (record.weatherCondition) {
+        weatherConditions.add(record.weatherCondition);
+      }
+      if (record.cloudCover !== undefined && record.cloudCover !== null) {
+        cloudCovers.add(record.cloudCover);
+      }
+    }
+
+    // Weather changed if we have more than one distinct weather condition or cloud cover
+    return weatherConditions.size > 1 || cloudCovers.size > 1;
   }
 
   /**

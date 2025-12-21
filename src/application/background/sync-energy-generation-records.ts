@@ -8,6 +8,8 @@ export const DataAPIEnergyGenerationRecordDto = z.object({
     energyGenerated: z.number(),
     timestamp: z.string(),
     intervalHours: z.number(),
+    weatherCondition: z.enum(["clear", "partly_cloudy", "overcast", "rain"]).optional(),
+    cloudCover: z.number().optional(),
     __v: z.number(),
 });
 
@@ -52,6 +54,8 @@ export const syncEnergyGenerationRecords = async () => {
                     energyGenerated: record.energyGenerated,
                     timestamp: new Date(record.timestamp),
                     intervalHours: record.intervalHours,
+                    weatherCondition: record.weatherCondition,
+                    cloudCover: record.cloudCover,
                 }));
 
                 await EnergyGenerationRecord.insertMany(recordsToInsert);
