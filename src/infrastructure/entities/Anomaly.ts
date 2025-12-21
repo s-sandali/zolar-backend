@@ -14,11 +14,12 @@ const anomalySchema = new mongoose.Schema({
     enum: [
       "NIGHTTIME_GENERATION",
       "ZERO_GENERATION_CLEAR_SKY",
-      "OVERPRODUCTION",
+      "ENERGY_EXCEEDING_THRESHOLD",
       "HIGH_GENERATION_BAD_WEATHER",
       "LOW_GENERATION_CLEAR_WEATHER",
       "SUDDEN_PRODUCTION_DROP",
       "ERRATIC_OUTPUT",
+      "FROZEN_GENERATION",
     ],
     index: true,
   },

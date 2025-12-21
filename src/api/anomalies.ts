@@ -61,6 +61,7 @@ anomaliesRouter.get(
   async (req, res, next) => {
     try {
       const auth = getAuth(req);
+      console.log('[DEBUG] Clerk User ID from auth:', auth.userId);
       const stats = await getAnomalyStats(auth.userId!);
       res.json(stats);
     } catch (error) {
