@@ -82,19 +82,19 @@ export async function getWeatherAdjustedPerformance(
     records: typeof energyRecords;
   }>();
 
-  energyRecords.forEach((record) => {
-    const dateKey = new Date(record.timestamp).toISOString().split('T')[0];
+  energyRecords.forEach((record: any) => {
+  const dateKey = new Date(record.timestamp).toISOString().split('T')[0];
 
-    if (!dailyDataMap.has(dateKey)) {
-      dailyDataMap.set(dateKey, { actualEnergy: 0, records: [] });
-    }
+  if (!dailyDataMap.has(dateKey)) {
+    dailyDataMap.set(dateKey, { actualEnergy: 0, records: [] });
+  }
 
-    const dayData = dailyDataMap.get(dateKey)!;
-    // Use energy field or fallback to energyGenerated
-    const energyValue = (record as any).energy || (record as any).energyGenerated || 0;
-    dayData.actualEnergy += energyValue;
-    dayData.records.push(record);
-  });
+  const dayData = dailyDataMap.get(dateKey)!;
+  const energyValue = record.energy ?? record.energyGenerated ?? 0;
+
+  dayData.actualEnergy += energyValue;
+  dayData.records.push(record);
+});
 
   // Calculate performance for each day
   const dailyData: DailyPerformanceData[] = [];
@@ -108,14 +108,15 @@ export async function getWeatherAdjustedPerformance(
     let totalWindSpeed = 0;
     let count = 0;
 
-    data.records.forEach((record) => {
-      if (record.cloudCover !== undefined) totalCloudCover += record.cloudCover;
-      if (record.precipitation !== undefined) totalPrecipitation += record.precipitation;
-      if (record.temperature !== undefined) totalTemp += record.temperature;
-      if (record.solarIrradiance !== undefined) totalIrradiance += record.solarIrradiance;
-      if (record.windSpeed !== undefined) totalWindSpeed += record.windSpeed;
-      count++;
-    });
+    data.records.forEach((record: any) => {
+  if (record.cloudCover !== undefined) totalCloudCover += record.cloudCover;
+  if (record.precipitation !== undefined) totalPrecipitation += record.precipitation;
+  if (record.temperature !== undefined) totalTemp += record.temperature;
+  if (record.solarIrradiance !== undefined) totalIrradiance += record.solarIrradiance;
+  if (record.windSpeed !== undefined) totalWindSpeed += record.windSpeed;
+  count++;
+});
+
 
     const avgCloudCover = count > 0 ? totalCloudCover / count : 50; // Default to moderate
     const avgPrecipitation = count > 0 ? totalPrecipitation / count : 0;
