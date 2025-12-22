@@ -1,10 +1,17 @@
 import { Anomaly } from "../infrastructure/entities/Anomaly";
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { User } from "../infrastructure/entities/User";
-import { NotFoundError, ForbiddenError } from "../domain/errors/errors";
+import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord";
+import { NotFoundError, ForbiddenError, ValidationError } from "../domain/errors/errors";
 import { getAuth } from "@clerk/express";
-import { Request } from "express";
+import { Request, Response, NextFunction } from "express";
 import type { Types } from "mongoose";
+import {
+  GetUserAnomaliesQueryDto,
+  GetAllAnomaliesQueryDto,
+  AnomalyIdParamDto,
+  ResolveAnomalyDto,
+} from "../domain/dtos/anomaly.dto";
 
 type LeanSolarUnit = {
   _id: Types.ObjectId;
@@ -13,6 +20,231 @@ type LeanSolarUnit = {
 };
 
 type AggregateCount = { _id: string; count: number };
+
+/**
+ * Validator for GET /api/anomalies/me query parameters
+ */
+export const getUserAnomaliesValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = GetUserAnomaliesQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for GET /api/anomalies query parameters (admin)
+ */
+export const getAllAnomaliesValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = GetAllAnomaliesQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for anomaly ID in URL params
+ */
+export const anomalyIdParamValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = AnomalyIdParamDto.safeParse(req.params);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for PATCH /api/anomalies/:id/resolve body
+ */
+export const resolveAnomalyValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = ResolveAnomalyDto.safeParse(req.body);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * GET /api/anomalies/me handler
+ */
+export const getUserAnomaliesHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const auth = getAuth(req);
+    const result = await getUserAnomalies(auth.userId!, req.query);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/anomalies handler (admin)
+ */
+export const getAllAnomaliesHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const result = await getAllAnomalies(req.query);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/anomalies/stats handler
+ */
+export const getAnomalyStatsHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const auth = getAuth(req);
+    console.log('[DEBUG] Clerk User ID from auth:', auth.userId);
+    const stats = await getAnomalyStats(auth.userId!);
+    res.json(stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/anomalies/:id/acknowledge handler
+ */
+export const acknowledgeAnomalyHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const auth = getAuth(req);
+    const anomaly = await acknowledgeAnomaly(req.params.id, auth.userId!);
+    res.json(anomaly);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/anomalies/:id/resolve handler
+ */
+export const resolveAnomalyHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const auth = getAuth(req);
+    const { resolutionNotes } = req.body;
+    const anomaly = await resolveAnomaly(
+      req.params.id,
+      auth.userId!,
+      resolutionNotes
+    );
+    res.json(anomaly);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/anomalies/debug handler
+ */
+export const getDebugInfo = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const auth = getAuth(req);
+
+    // Get solar units count
+    const solarUnitsCount = await SolarUnit.countDocuments();
+    const activeSolarUnits = await SolarUnit.countDocuments({ status: "ACTIVE" });
+
+    // Get energy records count
+    const energyRecordsCount = await EnergyGenerationRecord.countDocuments();
+
+    // Get nighttime records (potential anomalies)
+    const nighttimeRecords = await EnergyGenerationRecord.aggregate([
+      {
+        $addFields: {
+          hour: { $hour: "$timestamp" }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { hour: { $gte: 18 } },
+            { hour: { $lt: 6 } }
+          ],
+          energyGenerated: { $gt: 10 }
+        }
+      },
+      {
+        $count: "count"
+      }
+    ]);
+
+    const nighttimeCount = nighttimeRecords[0]?.count || 0;
+
+    // Sample nighttime record
+    const sampleNighttimeRecord = await EnergyGenerationRecord.findOne({
+      energyGenerated: { $gt: 10 }
+    }).then(async (rec) => {
+      if (rec) {
+        const hour = rec.timestamp.getUTCHours();
+        if (hour >= 18 || hour < 6) {
+          return rec;
+        }
+      }
+      return null;
+    });
+
+    res.json({
+      solarUnits: {
+        total: solarUnitsCount,
+        active: activeSolarUnits,
+      },
+      energyRecords: {
+        total: energyRecordsCount,
+        nighttimeAnomalies: nighttimeCount,
+      },
+      sampleNighttimeRecord,
+      status: energyRecordsCount === 0
+        ? "NO_DATA - Run sync first!"
+        : nighttimeCount === 0
+        ? "NO_ANOMALIES - Check if data has nighttime generation"
+        : "DATA_READY - Run detection!",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Get anomalies for the current user's solar units
