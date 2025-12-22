@@ -7,16 +7,12 @@ import { authenticationMiddleware } from "./middlewares/authentication-middlewar
 
 const weatherRouter = express.Router();
 
-/**
- * GET /api/weather/current/:solarUnitId
- * Get current weather data with solar impact analysis for a specific solar unit
- * Requires authentication
- */
-weatherRouter.get(
-  "/current/:solarUnitId",
-  authenticationMiddleware,
-  weatherSolarUnitParamValidator,
-  getCurrentWeather
-);
+weatherRouter
+  .route("/current/:solarUnitId")
+  .get(
+    authenticationMiddleware,
+    weatherSolarUnitParamValidator,
+    getCurrentWeather
+  );
 
 export default weatherRouter;

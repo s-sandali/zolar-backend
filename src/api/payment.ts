@@ -9,8 +9,20 @@ import { authenticationMiddleware } from "./middlewares/authentication-middlewar
 
 const paymentRouter = express.Router();
 
-paymentRouter.post( "/create-checkout-session", authenticationMiddleware,  createCheckoutSessionValidator,  createCheckoutSession);
+paymentRouter
+  .route("/create-checkout-session")
+  .post(
+    authenticationMiddleware,
+    createCheckoutSessionValidator,
+    createCheckoutSession
+  );
 
-paymentRouter.get("/session-status",authenticationMiddleware, getSessionStatusValidator,  getSessionStatus);
+paymentRouter
+  .route("/session-status")
+  .get(
+    authenticationMiddleware,
+    getSessionStatusValidator,
+    getSessionStatus
+  );
 
 export default paymentRouter;
