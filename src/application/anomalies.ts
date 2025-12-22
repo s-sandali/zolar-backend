@@ -172,6 +172,49 @@ export const resolveAnomalyHandler = async (
 };
 
 /**
+ * POST /api/anomalies/trigger-detection handler
+ */
+export const triggerDetectionHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    console.log("[Manual Trigger] Starting anomaly detection...");
+    const { runAnomalyDetectionForAllUnits } = await import("./anomaly-detection.js");
+    const result = await runAnomalyDetectionForAllUnits();
+    res.json({
+      success: true,
+      message: "Anomaly detection completed",
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/anomalies/trigger-sync handler
+ */
+export const triggerSyncHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    console.log("[Manual Trigger] Starting data sync...");
+    const { syncEnergyGenerationRecords } = await import("./background/sync-energy-generation-records.js");
+    await syncEnergyGenerationRecords();
+    res.json({
+      success: true,
+      message: "Data sync completed",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/anomalies/debug handler
  */
 export const getDebugInfo = async (
