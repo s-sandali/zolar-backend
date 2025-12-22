@@ -1,5 +1,8 @@
 import express from "express";
-import { getCurrentWeatherForSolarUnit } from "../application/weather";
+import {
+  getCurrentWeather,
+  weatherSolarUnitParamValidator,
+} from "../application/weather";
 import { authenticationMiddleware } from "./middlewares/authentication-middleware";
 
 const weatherRouter = express.Router();
@@ -12,17 +15,8 @@ const weatherRouter = express.Router();
 weatherRouter.get(
   "/current/:solarUnitId",
   authenticationMiddleware,
-  async (req, res, next) => {
-    try {
-      const { solarUnitId } = req.params;
-
-      const weatherData = await getCurrentWeatherForSolarUnit(solarUnitId);
-
-      res.json(weatherData);
-    } catch (error) {
-      next(error);
-    }
-  }
+  weatherSolarUnitParamValidator,
+  getCurrentWeather
 );
 
 export default weatherRouter;

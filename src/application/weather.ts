@@ -1,5 +1,22 @@
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
-import { NotFoundError } from "../domain/errors/errors";
+import { NotFoundError, ValidationError } from "../domain/errors/errors";
+import { Request, Response, NextFunction } from "express";
+import { WeatherSolarUnitParamDto } from "../domain/dtos/weather.dto";
+
+/**
+ * Validator for solar unit ID in weather URL params
+ */
+export const weatherSolarUnitParamValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = WeatherSolarUnitParamDto.safeParse(req.params);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
 
 // Types for Open-Meteo API response
 interface OpenMeteoResponse {
@@ -213,6 +230,25 @@ export function getWeatherInsight(
   }
   return "Challenging conditions for solar production today.";
 }
+
+/**
+ * GET /api/weather/current/:solarUnitId handler
+ */
+export const getCurrentWeather = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { solarUnitId } = req.params;
+
+    const weatherData = await getCurrentWeatherForSolarUnit(solarUnitId);
+
+    res.json(weatherData);
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Fetch current weather for a solar unit and calculate solar impact
