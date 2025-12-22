@@ -1,8 +1,75 @@
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord";
 import { Anomaly } from "../infrastructure/entities/Anomaly";
-import { NotFoundError } from "../domain/errors/errors";
+import { NotFoundError, ValidationError } from "../domain/errors/errors";
 import { calculateSolarImpact } from "./weather";
+import { Request, Response, NextFunction } from "express";
+import {
+  AnalyticsSolarUnitParamDto,
+  WeatherPerformanceQueryDto,
+  AnomalyDistributionQueryDto,
+  SystemHealthQueryDto,
+} from "../domain/dtos/analytics.dto";
+
+/**
+ * Validator for solar unit ID in analytics URL params
+ */
+export const analyticsSolarUnitParamValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = AnalyticsSolarUnitParamDto.safeParse(req.params);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for GET /api/analytics/weather-performance/:id query
+ */
+export const weatherPerformanceQueryValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = WeatherPerformanceQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for GET /api/analytics/anomaly-distribution/:id query
+ */
+export const anomalyDistributionQueryValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = AnomalyDistributionQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for GET /api/analytics/system-health/:id query
+ */
+export const systemHealthQueryValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = SystemHealthQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
 
 type LeanEnergyRecord = {
   timestamp: Date;
@@ -69,6 +136,26 @@ function calculateExpectedEnergy(
 
   return Math.round(expectedEnergy * 100) / 100; // Round to 2 decimal places
 }
+
+/**
+ * GET /api/analytics/weather-performance/:solarUnitId handler
+ */
+export const getWeatherPerformance = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { solarUnitId } = req.params;
+    const days = parseInt(req.query.days as string) || 7;
+
+    const analytics = await getWeatherAdjustedPerformance(solarUnitId, days);
+
+    res.json(analytics);
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Get weather-adjusted performance analytics for a solar unit
@@ -211,6 +298,26 @@ export async function getWeatherAdjustedPerformance(
 }
 
 /**
+ * GET /api/analytics/anomaly-distribution/:solarUnitId handler
+ */
+export const getAnomalyDistributionHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { solarUnitId } = req.params;
+    const days = Number.parseInt(req.query.days as string) || 30;
+
+    const analytics = await getAnomalyDistribution(solarUnitId, days);
+
+    res.json(analytics);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get anomaly distribution analytics
  */
 export interface AnomalyDistributionResponse {
@@ -303,6 +410,26 @@ export async function getAnomalyDistribution(
     recentTrend,
   };
 }
+
+/**
+ * GET /api/analytics/system-health/:solarUnitId handler
+ */
+export const getSystemHealthHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { solarUnitId } = req.params;
+    const days = Number.parseInt(req.query.days as string) || 7;
+
+    const analytics = await getSystemHealth(solarUnitId, days);
+
+    res.json(analytics);
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * Get system health score
