@@ -1,8 +1,58 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import { Invoice } from "../infrastructure/entities/Invoice";
-import { NotFoundError } from "../domain/errors/errors";
+import { NotFoundError, ValidationError } from "../domain/errors/errors";
 import { getAuth } from "@clerk/express";
 import { User } from "../infrastructure/entities/User";
+import {
+  GetInvoicesQueryDto,
+  InvoiceIdParamDto,
+  GetAllInvoicesQueryDto,
+} from "../domain/dtos/invoice.dto";
+
+/**
+ * Validator for GET /api/invoices query parameters
+ */
+export const getInvoicesValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = GetInvoicesQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for invoice ID in URL params
+ */
+export const invoiceIdParamValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = InvoiceIdParamDto.safeParse(req.params);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for GET /api/invoices/admin/all query parameters
+ */
+export const getAllInvoicesValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = GetAllInvoicesQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
 
 /**
  * Get all invoices for the authenticated user
