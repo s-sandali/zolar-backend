@@ -13,6 +13,31 @@ export const DataAPIEnergyGenerationRecordDto = z.object({
     __v: z.number(),
 });
 
+const resolveDataApiBaseUrl = () => {
+    const configuredBaseUrl = process.env.DATA_API_BASE_URL?.trim();
+    if (configuredBaseUrl) {
+        return configuredBaseUrl.replace(/\/$/, "");
+    }
+    return "http://localhost:8001";
+};
+
+const buildEnergyGenerationRecordsUrl = (
+    serialNumber: string,
+    lastSyncedTimestamp?: Date
+) => {
+    const baseUrl = `${resolveDataApiBaseUrl()}/`;
+    const url = new URL(
+        `/api/energy-generation-records/solar-unit/${encodeURIComponent(serialNumber)}`,
+        baseUrl
+    );
+
+    if (lastSyncedTimestamp) {
+        url.searchParams.append("sinceTimestamp", lastSyncedTimestamp.toISOString());
+    }
+
+    return url;
+};
+
 /**
  * Synchronizes energy generation records from the data API
  * Fetches latest records and merges new data with existing records
@@ -30,12 +55,10 @@ export const syncEnergyGenerationRecords = async () => {
                 .sort({ timestamp: -1 });
 
             // Build URL with sinceTimestamp query parameter
-            const baseUrl = `http://localhost:8001/api/energy-generation-records/solar-unit/${solarUnit.serialNumber}`;
-            const url = new URL(baseUrl);
-
-            if (lastSyncedRecord?.timestamp) {
-                url.searchParams.append('sinceTimestamp', lastSyncedRecord.timestamp.toISOString());
-            }
+            const url = buildEnergyGenerationRecordsUrl(
+                solarUnit.serialNumber,
+                lastSyncedRecord?.timestamp
+            );
 
             // Fetch latest records from data API with server-side filtering
             const dataAPIResponse = await fetch(url.toString());

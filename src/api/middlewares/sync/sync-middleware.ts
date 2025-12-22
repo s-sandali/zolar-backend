@@ -16,6 +16,19 @@ export const DataAPIEnergyGenerationRecordDto = z.object({
     __v: z.number(),
 });
 
+const resolveDataApiBaseUrl = () => {
+    const configuredBaseUrl = process.env.DATA_API_BASE_URL?.trim();
+    if (configuredBaseUrl) {
+        return configuredBaseUrl.replace(/\/$/, "");
+    }
+    return "http://localhost:8001";
+};
+
+const buildEnergyGenerationRecordsUrl = (serialNumber: string) => {
+    const baseUrl = resolveDataApiBaseUrl();
+    return `${baseUrl}/api/energy-generation-records/solar-unit/${encodeURIComponent(serialNumber)}`;
+};
+
 /**
  * Synchronizes energy generation records from the data API
  * Fetches latest records and merges new data with existing records
@@ -38,12 +51,8 @@ export const syncMiddleware = async (
         }
 
         // Fetch latest records from data API
-        const dataApiBaseUrl =
-            process.env.DATA_API_BASE_URL?.replace(/\/$/, "") ||
-            "http://localhost:8001";
-
         const dataAPIResponse = await fetch(
-            `${dataApiBaseUrl}/api/energy-generation-records/solar-unit/${solarUnit.serialNumber}`
+            buildEnergyGenerationRecordsUrl(solarUnit.serialNumber)
         );
         if (!dataAPIResponse.ok) {
             throw new Error("Failed to fetch energy generation records from data API");
