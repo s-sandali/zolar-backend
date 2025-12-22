@@ -43,3 +43,15 @@ export const SystemHealthQueryDto = z.object({
     .transform((val) => Number.parseInt(val, 10))
     .pipe(z.number().min(1).max(30)),
 });
+
+/**
+ * Query parameters for GET /api/analytics/peak-distribution/:solarUnitId
+ */
+export const PeakDistributionQueryDto = z.object({
+  days: z
+    .string()
+    .optional()
+    .default("14")
+    .transform((val) => Number.parseInt(val, 10))
+    .pipe(z.number().min(3).max(60)),
+});

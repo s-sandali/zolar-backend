@@ -3,26 +3,51 @@ import {
   getWeatherPerformance,
   getAnomalyDistributionHandler,
   getSystemHealthHandler,
+  getPeakDistributionHandler,
   analyticsSolarUnitParamValidator,
   weatherPerformanceQueryValidator,
   anomalyDistributionQueryValidator,
   systemHealthQueryValidator,
+  peakDistributionQueryValidator,
 } from "../application/analytics";
 import { authenticationMiddleware } from "./middlewares/authentication-middleware";
 
 const analyticsRouter = express.Router();
 
-/**Get weather-adjusted performance analytics for a solar unit, Requires authentication
- * Query params: days: number of days to analyze (default: 7, max: 30)
- */
-analyticsRouter.get("/weather-performance/:solarUnitId",authenticationMiddleware, analyticsSolarUnitParamValidator,weatherPerformanceQueryValidator, getWeatherPerformance);
+analyticsRouter
+  .route("/weather-performance/:solarUnitId")
+  .get(
+    authenticationMiddleware,
+    analyticsSolarUnitParamValidator,
+    weatherPerformanceQueryValidator,
+    getWeatherPerformance
+  );
 
-/** Get anomaly distribution analytics Requires authentication,Query params:- days: number of days to analyze (default: 30, max: 90)
- */
-analyticsRouter.get( "/anomaly-distribution/:solarUnitId", authenticationMiddleware, analyticsSolarUnitParamValidator,anomalyDistributionQueryValidator,getAnomalyDistributionHandler);
+analyticsRouter
+  .route("/anomaly-distribution/:solarUnitId")
+  .get(
+    authenticationMiddleware,
+    analyticsSolarUnitParamValidator,
+    anomalyDistributionQueryValidator,
+    getAnomalyDistributionHandler
+  );
 
-/** Get system health score and factors,Requires authentication,Query params:- days: number of days to analyze (default: 7, max: 30)
- */
-analyticsRouter.get("/system-health/:solarUnitId",authenticationMiddleware,analyticsSolarUnitParamValidator, systemHealthQueryValidator, getSystemHealthHandler);
+analyticsRouter
+  .route("/system-health/:solarUnitId")
+  .get(
+    authenticationMiddleware,
+    analyticsSolarUnitParamValidator,
+    systemHealthQueryValidator,
+    getSystemHealthHandler
+  );
+
+analyticsRouter
+  .route("/peak-distribution/:solarUnitId")
+  .get(
+    authenticationMiddleware,
+    analyticsSolarUnitParamValidator,
+    peakDistributionQueryValidator,
+    getPeakDistributionHandler
+  );
 
 export default analyticsRouter;

@@ -9,6 +9,7 @@ import {
   WeatherPerformanceQueryDto,
   AnomalyDistributionQueryDto,
   SystemHealthQueryDto,
+  PeakDistributionQueryDto,
 } from "../domain/dtos/analytics.dto";
 
 /**
@@ -71,6 +72,21 @@ export const systemHealthQueryValidator = (
   next();
 };
 
+/**
+ * Validator for GET /api/analytics/peak-distribution/:id query
+ */
+export const peakDistributionQueryValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = PeakDistributionQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
 type LeanEnergyRecord = {
   timestamp: Date;
   energyGenerated?: number;
@@ -101,6 +117,14 @@ interface DailyPerformanceData {
   precipitation: number;
   temperature: number;
 }
+
+const PEAK_START_HOUR_UTC = 10; // 10:00 UTC ~ midday for seeded data
+const PEAK_END_HOUR_UTC = 16;   // exclusive
+
+const isPeakHourUtc = (timestamp: Date) => {
+  const hour = timestamp.getUTCHours();
+  return hour >= PEAK_START_HOUR_UTC && hour < PEAK_END_HOUR_UTC;
+};
 
 export interface WeatherAdjustedPerformanceResponse {
   solarUnitId: string;
@@ -318,6 +342,26 @@ export const getAnomalyDistributionHandler = async (
 };
 
 /**
+ * GET /api/analytics/peak-distribution/:solarUnitId handler
+ */
+export const getPeakDistributionHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { solarUnitId } = req.params;
+    const days = Number.parseInt(req.query.days as string) || 14;
+
+    const analytics = await getPeakDistribution(solarUnitId, days);
+
+    res.json(analytics);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get anomaly distribution analytics
  */
 export interface AnomalyDistributionResponse {
@@ -327,6 +371,22 @@ export interface AnomalyDistributionResponse {
   bySeverity: Array<{ severity: string; count: number; percentage: number }>;
   byStatus: Array<{ status: string; count: number; percentage: number }>;
   recentTrend: Array<{ date: string; count: number }>;
+}
+
+export interface PeakDistributionResponse {
+  solarUnitId: string;
+  rangeDays: number;
+  totals: {
+    peakWh: number;
+    offPeakWh: number;
+    peakShare: number;
+  };
+  daily: Array<{
+    date: string;
+    peakWh: number;
+    offPeakWh: number;
+    peakShare: number;
+  }>;
 }
 
 export async function getAnomalyDistribution(
@@ -408,6 +468,83 @@ export async function getAnomalyDistribution(
     bySeverity,
     byStatus,
     recentTrend,
+  };
+}
+
+/**
+ * Get peak vs off-peak energy distribution
+ */
+export async function getPeakDistribution(
+  solarUnitId: string,
+  days: number = 14
+): Promise<PeakDistributionResponse> {
+  const solarUnit = await SolarUnit.findById(solarUnitId);
+  if (!solarUnit) {
+    throw new NotFoundError("Solar unit not found");
+  }
+
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  startDate.setHours(0, 0, 0, 0);
+  endDate.setHours(23, 59, 59, 999);
+
+  const energyRecords = await EnergyGenerationRecord.find({
+    solarUnitId: solarUnit._id,
+    timestamp: { $gte: startDate, $lte: endDate },
+  })
+    .sort({ timestamp: 1 })
+    .lean<LeanEnergyRecord[]>();
+
+  const dailyBuckets = new Map<string, { peakWh: number; offPeakWh: number }>();
+
+  energyRecords.forEach((record) => {
+    const dateKey = new Date(record.timestamp).toISOString().split("T")[0];
+    if (!dailyBuckets.has(dateKey)) {
+      dailyBuckets.set(dateKey, { peakWh: 0, offPeakWh: 0 });
+    }
+
+    const bucket = dailyBuckets.get(dateKey)!;
+    const energyValue = record.energy ?? record.energyGenerated ?? 0;
+
+    if (energyValue <= 0) {
+      return;
+    }
+
+    if (isPeakHourUtc(record.timestamp)) {
+      bucket.peakWh += energyValue;
+    } else {
+      bucket.offPeakWh += energyValue;
+    }
+  });
+
+  const daily = Array.from(dailyBuckets.entries())
+    .map(([date, bucket]) => {
+      const total = bucket.peakWh + bucket.offPeakWh;
+      return {
+        date,
+        peakWh: Math.round(bucket.peakWh),
+        offPeakWh: Math.round(bucket.offPeakWh),
+        peakShare: total > 0 ? Math.round((bucket.peakWh / total) * 100) : 0,
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalPeakWh = daily.reduce((sum, day) => sum + day.peakWh, 0);
+  const totalOffPeakWh = daily.reduce((sum, day) => sum + day.offPeakWh, 0);
+  const totalEnergyWh = totalPeakWh + totalOffPeakWh;
+
+  return {
+    solarUnitId: solarUnit._id.toString(),
+    rangeDays: days,
+    totals: {
+      peakWh: Math.round(totalPeakWh),
+      offPeakWh: Math.round(totalOffPeakWh),
+      peakShare: totalEnergyWh > 0
+        ? Math.round((totalPeakWh / totalEnergyWh) * 100)
+        : 0,
+    },
+    daily,
   };
 }
 
