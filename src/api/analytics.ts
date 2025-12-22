@@ -12,49 +12,17 @@ import { authenticationMiddleware } from "./middlewares/authentication-middlewar
 
 const analyticsRouter = express.Router();
 
-/**
- * GET /api/analytics/weather-performance/:solarUnitId
- * Get weather-adjusted performance analytics for a solar unit
- * Requires authentication
- * Query params:
- *   - days: number of days to analyze (default: 7, max: 30)
+/**Get weather-adjusted performance analytics for a solar unit, Requires authentication
+ * Query params: days: number of days to analyze (default: 7, max: 30)
  */
-analyticsRouter.get(
-  "/weather-performance/:solarUnitId",
-  authenticationMiddleware,
-  analyticsSolarUnitParamValidator,
-  weatherPerformanceQueryValidator,
-  getWeatherPerformance
-);
+analyticsRouter.get("/weather-performance/:solarUnitId",authenticationMiddleware, analyticsSolarUnitParamValidator,weatherPerformanceQueryValidator, getWeatherPerformance);
 
-/**
- * GET /api/analytics/anomaly-distribution/:solarUnitId
- * Get anomaly distribution analytics
- * Requires authentication
- * Query params:
- *   - days: number of days to analyze (default: 30, max: 90)
+/** Get anomaly distribution analytics Requires authentication,Query params:- days: number of days to analyze (default: 30, max: 90)
  */
-analyticsRouter.get(
-  "/anomaly-distribution/:solarUnitId",
-  authenticationMiddleware,
-  analyticsSolarUnitParamValidator,
-  anomalyDistributionQueryValidator,
-  getAnomalyDistributionHandler
-);
+analyticsRouter.get( "/anomaly-distribution/:solarUnitId", authenticationMiddleware, analyticsSolarUnitParamValidator,anomalyDistributionQueryValidator,getAnomalyDistributionHandler);
 
-/**
- * GET /api/analytics/system-health/:solarUnitId
- * Get system health score and factors
- * Requires authentication
- * Query params:
- *   - days: number of days to analyze (default: 7, max: 30)
+/** Get system health score and factors,Requires authentication,Query params:- days: number of days to analyze (default: 7, max: 30)
  */
-analyticsRouter.get(
-  "/system-health/:solarUnitId",
-  authenticationMiddleware,
-  analyticsSolarUnitParamValidator,
-  systemHealthQueryValidator,
-  getSystemHealthHandler
-);
+analyticsRouter.get("/system-health/:solarUnitId",authenticationMiddleware,analyticsSolarUnitParamValidator, systemHealthQueryValidator, getSystemHealthHandler);
 
 export default analyticsRouter;
