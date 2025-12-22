@@ -1,9 +1,43 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import Stripe from "stripe";
 import { Invoice } from "../infrastructure/entities/Invoice";
 import { NotFoundError, ValidationError } from "../domain/errors/errors";
 import { getAuth } from "@clerk/express";
 import { User } from "../infrastructure/entities/User";
+import {
+  CreateCheckoutSessionDto,
+  GetSessionStatusQueryDto,
+} from "../domain/dtos/payment.dto";
+
+/**
+ * Validator for POST /api/payments/create-checkout-session body
+ */
+export const createCheckoutSessionValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = CreateCheckoutSessionDto.safeParse(req.body);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for GET /api/payments/session-status query
+ */
+export const getSessionStatusValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = GetSessionStatusQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
 
 // Initialize Stripe SDK
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
