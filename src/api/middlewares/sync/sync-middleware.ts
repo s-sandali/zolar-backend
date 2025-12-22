@@ -22,7 +22,7 @@ export const DataAPIEnergyGenerationRecordDto = z.object({
  */
 export const syncMiddleware = async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) => {
     try {
@@ -82,6 +82,7 @@ export const syncMiddleware = async (
         next();
     } catch (error) {
         console.error("Sync middleware error:", error);
-        next(error);
+        // Don't fail the request if sync fails - just log and continue
+        next();
     }
 };
