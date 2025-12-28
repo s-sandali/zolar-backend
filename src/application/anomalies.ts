@@ -2,6 +2,8 @@ import { Anomaly } from "../infrastructure/entities/Anomaly";
 import { SolarUnit } from "../infrastructure/entities/SolarUnit";
 import { User } from "../infrastructure/entities/User";
 import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord";
+import { runAnomalyDetectionForAllUnits } from "./anomaly-detection";
+import { syncEnergyGenerationRecords } from "./background/sync-energy-generation-records";
 import { NotFoundError, ForbiddenError, ValidationError } from "../domain/errors/errors";
 import { getAuth } from "@clerk/express";
 import { Request, Response, NextFunction } from "express";
@@ -181,7 +183,6 @@ export const triggerDetectionHandler = async (
 ) => {
   try {
     console.log("[Manual Trigger] Starting anomaly detection...");
-    const { runAnomalyDetectionForAllUnits } = await import("./anomaly-detection");
     const result = await runAnomalyDetectionForAllUnits();
     res.json({
       success: true,
@@ -203,7 +204,6 @@ export const triggerSyncHandler = async (
 ) => {
   try {
     console.log("[Manual Trigger] Starting data sync...");
-    const { syncEnergyGenerationRecords } = await import("./background/sync-energy-generation-records");
     await syncEnergyGenerationRecords();
     res.json({
       success: true,
