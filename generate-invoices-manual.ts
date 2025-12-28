@@ -4,8 +4,8 @@
  */
 
 import dotenv from "dotenv";
-import { connectDB } from "./src/infrastructure/db.ts";
-import { generateMonthlyInvoices } from "./src/application/background/generate-invoices.ts";
+import { connectDB } from "./src/infrastructure/db.js";
+import { generateMonthlyInvoices } from "./src/application/background/generate-invoices.js";
 import mongoose from "mongoose";
 
 dotenv.config();

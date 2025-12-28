@@ -9,8 +9,7 @@
     "strict": true,
     "lib": ["esnext", "dom"],
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true
+    "skipLibCheck": true
   },
   "ts-node": {
     "files": true

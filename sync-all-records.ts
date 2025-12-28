@@ -5,9 +5,9 @@
  */
 
 import dotenv from "dotenv";
-import { connectDB } from "./src/infrastructure/db.ts";
-import { EnergyGenerationRecord } from "./src/infrastructure/entities/EnergyGenerationRecord.ts";
-import { SolarUnit } from "./src/infrastructure/entities/SolarUnit.ts";
+import { connectDB } from "./src/infrastructure/db.js";
+import { EnergyGenerationRecord } from "./src/infrastructure/entities/EnergyGenerationRecord.js";
+import { SolarUnit } from "./src/infrastructure/entities/SolarUnit.js";
 import mongoose from "mongoose";
 import { z } from "zod";
 
