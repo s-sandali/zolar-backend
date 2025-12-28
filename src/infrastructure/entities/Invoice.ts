@@ -45,4 +45,6 @@ invoiceSchema.index({ userId: 1, createdAt: -1 });
 invoiceSchema.index({ paymentStatus: 1 });
 invoiceSchema.index({ solarUnitId: 1, billingPeriodStart: 1 });
 
-export const Invoice = mongoose.model("Invoice", invoiceSchema);
+export const Invoice =
+  mongoose.models.Invoice ||
+  mongoose.model("Invoice", invoiceSchema);
