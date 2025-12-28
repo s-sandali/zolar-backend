@@ -4,8 +4,8 @@
  */
 
 import dotenv from "dotenv";
-import { connectDB } from "./src/infrastructure/db.js";
-import { runAnomalyDetectionForAllUnits } from "./src/application/anomaly-detection.js";
+import { connectDB } from "./src/infrastructure/db";
+import { runAnomalyDetectionForAllUnits } from "./src/application/anomaly-detection";
 import mongoose from "mongoose";
 
 dotenv.config();
