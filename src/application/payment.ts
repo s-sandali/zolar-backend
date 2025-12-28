@@ -72,13 +72,15 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     throw new ValidationError("Invoice already paid");
   }
 
+  const quantity = Math.max(1, Math.round(invoice.totalEnergyGenerated));
+
   // Create Stripe Checkout Session
   const session = await stripe.checkout.sessions.create({
     ui_mode: "embedded",
     line_items: [
       {
         price: process.env.STRIPE_PRICE_ID,
-        quantity: Math.round(invoice.totalEnergyGenerated), // kWh as quantity
+        quantity,
       },
     ],
     mode: "payment",
