@@ -1,7 +1,7 @@
-import { SolarUnit } from "../../infrastructure/entities/SolarUnit.js";
-import { Invoice } from "../../infrastructure/entities/Invoice.js";
-import { EnergyGenerationRecord } from "../../infrastructure/entities/EnergyGenerationRecord.js";
-import "../../infrastructure/entities/User.js";
+import { SolarUnit } from "../../infrastructure/entities/SolarUnit";
+import { Invoice } from "../../infrastructure/entities/Invoice";
+import { EnergyGenerationRecord } from "../../infrastructure/entities/EnergyGenerationRecord";
+import "../../infrastructure/entities/User";
 
 /**
  * Generates monthly invoices for all active solar units
