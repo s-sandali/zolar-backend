@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { EnergyGenerationRecord } from "../../infrastructure/entities/EnergyGenerationRecord.js";
-import { SolarUnit } from "../../infrastructure/entities/SolarUnit.js";
+import { EnergyGenerationRecord } from "../../infrastructure/entities/EnergyGenerationRecord";
+import { SolarUnit } from "../../infrastructure/entities/SolarUnit";
 
 export const DataAPIEnergyGenerationRecordDto = z.object({
     _id: z.string(),
