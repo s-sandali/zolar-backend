@@ -70,7 +70,9 @@ export const generateMonthlyInvoices = async (forceGenerate: boolean = false) =>
           },
         ]);
 
-        const totalEnergyGenerated = energyRecords.length > 0 ? energyRecords[0].totalEnergy : 0;
+        const totalEnergyWh = energyRecords.length > 0 ? energyRecords[0].totalEnergy : 0;
+        // Convert Wh to kWh for invoice
+        const totalEnergyGenerated = totalEnergyWh / 1000;
 
         // Only create invoice if there's energy generated
         if (totalEnergyGenerated > 0) {
@@ -84,7 +86,7 @@ export const generateMonthlyInvoices = async (forceGenerate: boolean = false) =>
           });
 
           invoicesCreated++;
-          console.log(`Created invoice for solar unit ${solarUnit.serialNumber}: ${totalEnergyGenerated} kWh`);
+          console.log(`Created invoice for solar unit ${solarUnit.serialNumber}: ${totalEnergyGenerated.toFixed(2)} kWh`);
         } else {
           console.log(`No energy generated for solar unit ${solarUnit.serialNumber} during billing period`);
         }
