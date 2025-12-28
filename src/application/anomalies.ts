@@ -181,7 +181,7 @@ export const triggerDetectionHandler = async (
 ) => {
   try {
     console.log("[Manual Trigger] Starting anomaly detection...");
-    const { runAnomalyDetectionForAllUnits } = await import("./anomaly-detection.js");
+    const { runAnomalyDetectionForAllUnits } = await import("./anomaly-detection.ts");
     const result = await runAnomalyDetectionForAllUnits();
     res.json({
       success: true,
@@ -203,7 +203,7 @@ export const triggerSyncHandler = async (
 ) => {
   try {
     console.log("[Manual Trigger] Starting data sync...");
-    const { syncEnergyGenerationRecords } = await import("./background/sync-energy-generation-records.js");
+    const { syncEnergyGenerationRecords } = await import("./background/sync-energy-generation-records.ts");
     await syncEnergyGenerationRecords();
     res.json({
       success: true,
