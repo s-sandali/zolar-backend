@@ -2,6 +2,7 @@ import { GetAllEnergyGenerationRecordsQueryDto } from "../domain/dtos/solar-unit
 import { ValidationError } from "../domain/errors/errors";
 import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord";
 import { NextFunction, Request, Response } from "express";
+import { Types } from "mongoose";
 
 export const getAllEnergyGenerationRecordsBySolarUnitId = async (
   req: Request,
@@ -22,41 +23,15 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
         solarUnitId: id,
       }).sort({ timestamp: -1 });
       res.status(200).json(energyGenerationRecords);
+      return;
     }
 
     if (groupBy === "date") {
-      if (!limit) {
-        const energyGenerationRecords = await EnergyGenerationRecord.aggregate([
-          {
-            $group: {
-              _id: {
-                date: {
-                  $dateToString: { format: "%Y-%m-%d", date: "$timestamp" },
-                },
-              },
-              totalEnergyWh: { $sum: "$energyGenerated" },
-            },
-          },
-          {
-            $addFields: {
-              // Convert Wh to kWh for consistent API response
-              totalEnergy: { $divide: ["$totalEnergyWh", 1000] }
-            }
-          },
-          {
-            $project: {
-              totalEnergyWh: 0  // Remove intermediate field
-            }
-          },
-          {
-            $sort: { "_id.date": -1 },
-          },
-        ]);
-
-        res.status(200).json(energyGenerationRecords);
-      }
-
-      const energyGenerationRecords = await EnergyGenerationRecord.aggregate([
+      const solarUnitObjectId = new Types.ObjectId(id);
+      const basePipeline = [
+        {
+          $match: { solarUnitId: solarUnitObjectId },
+        },
         {
           $group: {
             _id: {
@@ -69,21 +44,28 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
         },
         {
           $addFields: {
-            // Convert Wh to kWh for consistent API response
-            totalEnergy: { $divide: ["$totalEnergyWh", 1000] }
-          }
+            totalEnergy: { $divide: ["$totalEnergyWh", 1000] },
+          },
         },
         {
           $project: {
-            totalEnergyWh: 0  // Remove intermediate field
-          }
+            totalEnergyWh: 0,
+          },
         },
         {
           $sort: { "_id.date": -1 },
         },
-      ]);
+      ];
 
-      res.status(200).json(energyGenerationRecords.slice(0, parseInt(limit)));
+      const energyGenerationRecords = await EnergyGenerationRecord.aggregate(basePipeline);
+
+      if (!limit) {
+        res.status(200).json(energyGenerationRecords);
+        return;
+      }
+
+      res.status(200).json(energyGenerationRecords.slice(0, parseInt(limit, 10)));
+      return;
     }
   } catch (error) {
     next(error);
