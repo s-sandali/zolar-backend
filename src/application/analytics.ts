@@ -225,7 +225,8 @@ export async function getWeatherAdjustedPerformance(
   const dayData = dailyDataMap.get(dateKey)!;
   const energyValue = record.energy ?? record.energyGenerated ?? 0;
 
-  dayData.actualEnergy += energyValue;
+  // Convert Wh to kWh for consistent units
+  dayData.actualEnergy += energyValue / 1000;
   dayData.records.push(record);
 });
 
@@ -511,10 +512,13 @@ export async function getPeakDistribution(
       return;
     }
 
+    // Convert Wh to kWh for consistent units
+    const energyKwh = energyValue / 1000;
+
     if (isPeakHourUtc(record.timestamp)) {
-      bucket.peakWh += energyValue;
+      bucket.peakWh += energyKwh;
     } else {
-      bucket.offPeakWh += energyValue;
+      bucket.offPeakWh += energyKwh;
     }
   });
 
@@ -523,8 +527,8 @@ export async function getPeakDistribution(
       const total = bucket.peakWh + bucket.offPeakWh;
       return {
         date,
-        peakWh: Math.round(bucket.peakWh),
-        offPeakWh: Math.round(bucket.offPeakWh),
+        peakWh: Math.round(bucket.peakWh * 100) / 100, // Round to 2 decimal places for kWh
+        offPeakWh: Math.round(bucket.offPeakWh * 100) / 100,
         peakShare: total > 0 ? Math.round((bucket.peakWh / total) * 100) : 0,
       };
     })
@@ -538,8 +542,8 @@ export async function getPeakDistribution(
     solarUnitId: solarUnit._id.toString(),
     rangeDays: days,
     totals: {
-      peakWh: Math.round(totalPeakWh),
-      offPeakWh: Math.round(totalOffPeakWh),
+      peakWh: Math.round(totalPeakWh * 100) / 100, // Round to 2 decimal places for kWh
+      offPeakWh: Math.round(totalOffPeakWh * 100) / 100,
       peakShare: totalEnergyWh > 0
         ? Math.round((totalPeakWh / totalEnergyWh) * 100)
         : 0,
