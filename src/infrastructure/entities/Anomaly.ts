@@ -87,4 +87,6 @@ const anomalySchema = new mongoose.Schema({
 anomalySchema.index({ solarUnitId: 1, detectedAt: -1 });
 anomalySchema.index({ solarUnitId: 1, status: 1, severity: 1 });
 
-export const Anomaly = mongoose.model("Anomaly", anomalySchema);
+export const Anomaly =
+  mongoose.models.Anomaly ||
+  mongoose.model("Anomaly", anomalySchema);
