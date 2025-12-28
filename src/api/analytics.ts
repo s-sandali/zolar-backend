@@ -4,11 +4,13 @@ import {
   getAnomalyDistributionHandler,
   getSystemHealthHandler,
   getPeakDistributionHandler,
+  getCapacityFactorHandler,
   analyticsSolarUnitParamValidator,
   weatherPerformanceQueryValidator,
   anomalyDistributionQueryValidator,
   systemHealthQueryValidator,
   peakDistributionQueryValidator,
+  capacityFactorQueryValidator,
 } from "../application/analytics";
 import { authenticationMiddleware } from "./middlewares/authentication-middleware";
 
@@ -48,6 +50,15 @@ analyticsRouter
     analyticsSolarUnitParamValidator,
     peakDistributionQueryValidator,
     getPeakDistributionHandler
+  );
+
+analyticsRouter
+  .route("/capacity-factor/:solarUnitId")
+  .get(
+    authenticationMiddleware,
+    analyticsSolarUnitParamValidator,
+    capacityFactorQueryValidator,
+    getCapacityFactorHandler
   );
 
 export default analyticsRouter;

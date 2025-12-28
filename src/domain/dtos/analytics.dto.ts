@@ -55,3 +55,15 @@ export const PeakDistributionQueryDto = z.object({
     .transform((val) => Number.parseInt(val, 10))
     .pipe(z.number().min(3).max(60)),
 });
+
+/**
+ * Query parameters for GET /api/analytics/capacity-factor/:solarUnitId
+ */
+export const CapacityFactorQueryDto = z.object({
+  days: z
+    .string()
+    .optional()
+    .default("14")
+    .transform((val) => Number.parseInt(val, 10))
+    .pipe(z.number().min(3).max(60)),
+});

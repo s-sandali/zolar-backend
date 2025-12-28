@@ -10,6 +10,7 @@ import {
   AnomalyDistributionQueryDto,
   SystemHealthQueryDto,
   PeakDistributionQueryDto,
+  CapacityFactorQueryDto,
 } from "../domain/dtos/analytics.dto";
 
 /**
@@ -81,6 +82,21 @@ export const peakDistributionQueryValidator = (
   next: NextFunction
 ) => {
   const result = PeakDistributionQueryDto.safeParse(req.query);
+  if (!result.success) {
+    throw new ValidationError(result.error.message);
+  }
+  next();
+};
+
+/**
+ * Validator for GET /api/analytics/capacity-factor/:id query
+ */
+export const capacityFactorQueryValidator = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const result = CapacityFactorQueryDto.safeParse(req.query);
   if (!result.success) {
     throw new ValidationError(result.error.message);
   }
@@ -363,6 +379,26 @@ export const getPeakDistributionHandler = async (
 };
 
 /**
+ * GET /api/analytics/capacity-factor/:solarUnitId handler
+ */
+export const getCapacityFactorHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { solarUnitId } = req.params;
+    const days = Number.parseInt(req.query.days as string) || 14;
+
+    const analytics = await getCapacityFactorAnalytics(solarUnitId, days);
+
+    res.json(analytics);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get anomaly distribution analytics
  */
 export interface AnomalyDistributionResponse {
@@ -472,6 +508,25 @@ export async function getAnomalyDistribution(
   };
 }
 
+export interface CapacityFactorBucket {
+  hour: number;
+  label: string;
+  factor: number;
+  actualKwh: number;
+  theoreticalKwh: number;
+  samples: number;
+}
+
+export interface CapacityFactorResponse {
+  solarUnitId: string;
+  rangeDays: number;
+  averageFactor: number;
+  utilization: number;
+  bestHour: { label: string; factor: number } | null;
+  lowestHour: { label: string; factor: number } | null;
+  buckets: CapacityFactorBucket[];
+}
+
 /**
  * Get peak vs off-peak energy distribution
  */
@@ -549,6 +604,110 @@ export async function getPeakDistribution(
         : 0,
     },
     daily,
+  };
+}
+
+const formatHourLabel = (hour: number) => `${hour.toString().padStart(2, "0")}:00`;
+
+export async function getCapacityFactorAnalytics(
+  solarUnitId: string,
+  days: number = 14
+): Promise<CapacityFactorResponse> {
+  const solarUnit = await SolarUnit.findById(solarUnitId);
+  if (!solarUnit) {
+    throw new NotFoundError("Solar unit not found");
+  }
+
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  startDate.setHours(0, 0, 0, 0);
+  endDate.setHours(23, 59, 59, 999);
+
+  const energyRecords = await EnergyGenerationRecord.find({
+    solarUnitId: solarUnit._id,
+    timestamp: { $gte: startDate, $lte: endDate },
+  })
+    .sort({ timestamp: 1 })
+    .lean<LeanEnergyRecord[]>();
+
+  const buckets = Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    label: formatHourLabel(hour),
+    actualWh: 0,
+    theoreticalWh: 0,
+    samples: 0,
+  }));
+
+  energyRecords.forEach((record) => {
+    const bucketHour = new Date(record.timestamp).getUTCHours();
+    const bucket = buckets[bucketHour];
+
+    const energyValue = record.energy ?? record.energyGenerated ?? 0;
+    if (energyValue <= 0) {
+      return;
+    }
+
+    const intervalHours = record.intervalHours ?? 2;
+    const theoreticalWh = solarUnit.capacity * intervalHours;
+
+    if (theoreticalWh <= 0) {
+      return;
+    }
+
+    bucket.actualWh += energyValue;
+    bucket.theoreticalWh += theoreticalWh;
+    bucket.samples += 1;
+  });
+
+  const outputBuckets: CapacityFactorBucket[] = buckets.map((bucket) => {
+    const factor = bucket.theoreticalWh > 0
+      ? (bucket.actualWh / bucket.theoreticalWh) * 100
+      : 0;
+
+    return {
+      hour: bucket.hour,
+      label: bucket.label,
+      factor: Math.round(factor * 10) / 10,
+      actualKwh: Math.round((bucket.actualWh / 1000) * 100) / 100,
+      theoreticalKwh: Math.round((bucket.theoreticalWh / 1000) * 100) / 100,
+      samples: bucket.samples,
+    };
+  });
+
+  const totalActualWh = buckets.reduce((sum, bucket) => sum + bucket.actualWh, 0);
+  const totalTheoreticalWh = buckets.reduce((sum, bucket) => sum + bucket.theoreticalWh, 0);
+  const averageFactor = totalTheoreticalWh > 0
+    ? Math.round((totalActualWh / totalTheoreticalWh) * 1000) / 10
+    : 0;
+
+  const utilization = totalTheoreticalWh > 0
+    ? Math.round((totalActualWh / totalTheoreticalWh) * 100)
+    : 0;
+
+  const bucketsWithData = outputBuckets.filter((bucket) => bucket.samples > 0 && bucket.theoreticalKwh > 0);
+  const bestHourBucket = bucketsWithData.reduce<CapacityFactorBucket | null>((best, bucket) => {
+    if (!best || bucket.factor > best.factor) {
+      return bucket;
+    }
+    return best;
+  }, null);
+
+  const lowestHourBucket = bucketsWithData.reduce<CapacityFactorBucket | null>((worst, bucket) => {
+    if (!worst || bucket.factor < worst.factor) {
+      return bucket;
+    }
+    return worst;
+  }, null);
+
+  return {
+    solarUnitId: solarUnit._id.toString(),
+    rangeDays: days,
+    averageFactor,
+    utilization,
+    bestHour: bestHourBucket ? { label: bestHourBucket.label, factor: bestHourBucket.factor } : null,
+    lowestHour: lowestHourBucket ? { label: lowestHourBucket.label, factor: lowestHourBucket.factor } : null,
+    buckets: outputBuckets,
   };
 }
 
