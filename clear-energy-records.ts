@@ -4,8 +4,8 @@
  */
 
 import dotenv from "dotenv";
-import { connectDB } from "./src/infrastructure/db.js";
-import { EnergyGenerationRecord } from "./src/infrastructure/entities/EnergyGenerationRecord.js";
+import { connectDB } from "./src/infrastructure/db";
+import { EnergyGenerationRecord } from "./src/infrastructure/entities/EnergyGenerationRecord";
 import mongoose from "mongoose";
 
 dotenv.config();
