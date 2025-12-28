@@ -72,6 +72,10 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     throw new ValidationError("Invoice already paid");
   }
 
+  if (invoice.totalEnergyGenerated <= 0) {
+    throw new ValidationError("Invoice has no billable energy yet");
+  }
+
   const quantity = Math.max(1, Math.round(invoice.totalEnergyGenerated));
 
   // Create Stripe Checkout Session
