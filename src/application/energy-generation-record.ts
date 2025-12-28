@@ -34,8 +34,19 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
                   $dateToString: { format: "%Y-%m-%d", date: "$timestamp" },
                 },
               },
-              totalEnergy: { $sum: "$energyGenerated" },
+              totalEnergyWh: { $sum: "$energyGenerated" },
             },
+          },
+          {
+            $addFields: {
+              // Convert Wh to kWh for consistent API response
+              totalEnergy: { $divide: ["$totalEnergyWh", 1000] }
+            }
+          },
+          {
+            $project: {
+              totalEnergyWh: 0  // Remove intermediate field
+            }
           },
           {
             $sort: { "_id.date": -1 },
@@ -53,8 +64,19 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
                 $dateToString: { format: "%Y-%m-%d", date: "$timestamp" },
               },
             },
-            totalEnergy: { $sum: "$energyGenerated" },
+            totalEnergyWh: { $sum: "$energyGenerated" },
           },
+        },
+        {
+          $addFields: {
+            // Convert Wh to kWh for consistent API response
+            totalEnergy: { $divide: ["$totalEnergyWh", 1000] }
+          }
+        },
+        {
+          $project: {
+            totalEnergyWh: 0  // Remove intermediate field
+          }
         },
         {
           $sort: { "_id.date": -1 },
