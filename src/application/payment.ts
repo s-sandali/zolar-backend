@@ -76,7 +76,28 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
     throw new ValidationError("Invoice has no billable energy yet");
   }
 
+  // Fetch the price from Stripe to calculate the total amount
+  const priceId = process.env.STRIPE_PRICE_ID!;
+  const price = await stripe.prices.retrieve(priceId);
+
+  if (!price.unit_amount) {
+    throw new ValidationError("Unable to determine price amount");
+  }
+
+  const pricePerUnit = price.unit_amount; // Amount in cents
+
+  // With current Stripe price of $0.05 per unit, we charge $0.05 per kWh
+  // 1 unit = 1 kWh
   const quantity = Math.max(1, Math.round(invoice.totalEnergyGenerated));
+  const estimatedTotal = quantity * pricePerUnit;
+
+  // Stripe requires minimum $0.50 (50 cents) for checkout sessions
+  // Do not allow checkout if total is below minimum - let energy accumulate instead
+  if (estimatedTotal < 50) {
+    throw new ValidationError(
+      `Invoice total ($${(estimatedTotal / 100).toFixed(2)}) is below the minimum payment amount of $0.50. Please wait for more energy to accumulate before paying.`
+    );
+  }
 
   // Create Stripe Checkout Session
   const session = await stripe.checkout.sessions.create({
