@@ -41,6 +41,8 @@ async function seed() {
     const lastMonth = new Date(today);
     lastMonth.setMonth(lastMonth.getMonth() - 1);
 
+    const kwhToWh = (kwh: number) => Math.round(kwh * 1000);
+
     // Generate daily records for the past 30 days
     for (let i = 0; i < 30; i++) {
       const recordDate = new Date(lastMonth);
@@ -56,34 +58,34 @@ async function seed() {
         {
           solarUnitId: solarUnit._id,
           timestamp: new Date(recordDate.setHours(8, 0, 0, 0)),
-          energyGenerated: morningEnergy,
+          energyGenerated: kwhToWh(morningEnergy),
         },
         {
           solarUnitId: solarUnit._id,
           timestamp: new Date(recordDate.setHours(12, 0, 0, 0)),
-          energyGenerated: noonEnergy,
+          energyGenerated: kwhToWh(noonEnergy),
         },
         {
           solarUnitId: solarUnit._id,
           timestamp: new Date(recordDate.setHours(16, 0, 0, 0)),
-          energyGenerated: afternoonEnergy,
+          energyGenerated: kwhToWh(afternoonEnergy),
         },
         {
           solarUnitId: solarUnit._id,
           timestamp: new Date(recordDate.setHours(18, 0, 0, 0)),
-          energyGenerated: eveningEnergy,
+          energyGenerated: kwhToWh(eveningEnergy),
         }
       );
     }
 
     await EnergyGenerationRecord.insertMany(energyRecords);
 
-    const totalEnergy = energyRecords.reduce((sum, record) => sum + record.energyGenerated, 0);
+    const totalEnergyKwh = energyRecords.reduce((sum, record) => sum + record.energyGenerated / 1000, 0);
 
     console.log(`Database seeded successfully.`);
     console.log(`Created user: ${user.email} (${user.clerkUserId})`);
     console.log(`Created solar unit: ${solarUnit.serialNumber} for user ${user.email}`);
-    console.log(`Created ${energyRecords.length} energy generation records (Total: ${totalEnergy.toFixed(2)} kWh)`);
+    console.log(`Created ${energyRecords.length} energy generation records (Total: ${totalEnergyKwh.toFixed(2)} kWh)`);
   } catch (err) {
     console.error("Seeding error:", err);
   } finally {
