@@ -1,12 +1,14 @@
-import { SolarUnit } from "../../infrastructure/entities/SolarUnit";
-import { Invoice } from "../../infrastructure/entities/Invoice";
-import { EnergyGenerationRecord } from "../../infrastructure/entities/EnergyGenerationRecord";
+import { SolarUnit } from "../../infrastructure/entities/SolarUnit.ts";
+import { Invoice } from "../../infrastructure/entities/Invoice.ts";
+import { EnergyGenerationRecord } from "../../infrastructure/entities/EnergyGenerationRecord.ts";
+import "../../infrastructure/entities/User.ts";
 
 /**
  * Generates monthly invoices for all active solar units
  * Runs on a scheduled basis to create invoices based on installation date billing cycles
+ * @param forceGenerate - If true, bypasses the date check and generates invoices for all units (useful for testing)
  */
-export const generateMonthlyInvoices = async () => {
+export const generateMonthlyInvoices = async (forceGenerate: boolean = false) => {
   try {
     const today = new Date();
     console.log(`[${today.toISOString()}] Starting monthly invoice generation...`);
@@ -26,7 +28,8 @@ export const generateMonthlyInvoices = async () => {
       let billingPeriodEnd: Date;
 
       // If today's date matches the installation day, generate invoice
-      if (today.getDate() === dayOfMonth) {
+      // OR if forceGenerate is true (for manual testing)
+      if (forceGenerate || today.getDate() === dayOfMonth) {
         // Billing period is from last month (same day) to today
         billingPeriodEnd = new Date(today);
         billingPeriodStart = new Date(today);
