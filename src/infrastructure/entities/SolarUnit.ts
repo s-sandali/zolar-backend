@@ -39,4 +39,6 @@ const solarUnitSchema = new mongoose.Schema({
   },
 });
 
-export const SolarUnit = mongoose.model("SolarUnit", solarUnitSchema);
+export const SolarUnit =
+  mongoose.models.SolarUnit ||
+  mongoose.model("SolarUnit", solarUnitSchema);
