@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
-import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord.js";
-import { SolarUnit } from "../infrastructure/entities/SolarUnit.js";
-import { Anomaly } from "../infrastructure/entities/Anomaly.js";
+import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord";
+import { SolarUnit } from "../infrastructure/entities/SolarUnit";
+import { Anomaly } from "../infrastructure/entities/Anomaly";
 
 // Type definitions
 export type AnomalyType =
