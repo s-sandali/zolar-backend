@@ -2,7 +2,7 @@ import { GetAllEnergyGenerationRecordsQueryDto } from "../domain/dtos/solar-unit
 import { ValidationError } from "../domain/errors/errors";
 import { EnergyGenerationRecord } from "../infrastructure/entities/EnergyGenerationRecord";
 import { NextFunction, Request, Response } from "express";
-import { Types } from "mongoose";
+import { PipelineStage, Types } from "mongoose";
 
 export const getAllEnergyGenerationRecordsBySolarUnitId = async (
   req: Request,
@@ -28,7 +28,7 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
 
     if (groupBy === "date") {
       const solarUnitObjectId = new Types.ObjectId(id);
-      const basePipeline = [
+      const basePipeline: PipelineStage[] = [
         {
           $match: { solarUnitId: solarUnitObjectId },
         },
@@ -53,7 +53,7 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
           },
         },
         {
-          $sort: { "_id.date": -1 },
+          $sort: { "_id.date": -1 as 1 | -1 },
         },
       ];
 
@@ -64,7 +64,7 @@ export const getAllEnergyGenerationRecordsBySolarUnitId = async (
         return;
       }
 
-      res.status(200).json(energyGenerationRecords.slice(0, parseInt(limit, 10)));
+      res.status(200).json(energyGenerationRecords.slice(0, Number.parseInt(limit, 10)));
       return;
     }
   } catch (error) {
